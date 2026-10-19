@@ -1,0 +1,28 @@
+[lm/baseline] params=824,448
+step 0 loss 5.4524 0s
+step 50 loss 2.6591 7s
+step 100 loss 1.8715 14s
+step 150 loss 1.6479 22s
+step 200 loss 1.4624 29s
+step 250 loss 1.3836 36s
+step 300 loss 1.3210 43s
+step 350 loss 1.3222 50s
+EVAL {"val_bpb": 1.8671, "rev2_intact_bpb": 1.8619, "rev2_reversed_bpb": 7.4263, "rev2_ratio": 3.9886, "rev4_intact_bpb": 1.7779, "rev4_reversed_bpb": 8.138, "rev4_ratio": 4.5774, "rev8_intact_bpb": 1.7633, "rev8_reversed_bpb": 8.3529, "rev8_ratio": 4.7371, "step": 400, "train_loss": 1.2427, "elapsed_s": 56.9437}
+step 400 loss 1.2498 57s
+step 450 loss 1.2672 64s
+step 500 loss 1.1895 72s
+step 550 loss 1.1372 79s
+step 600 loss 1.1791 86s
+step 650 loss 1.0767 92s
+step 700 loss 1.0576 100s
+step 750 loss 1.0259 107s
+EVAL {"val_bpb": 1.6134, "rev2_intact_bpb": 1.5962, "rev2_reversed_bpb": 7.8725, "rev2_ratio": 4.9318, "rev4_intact_bpb": 1.5286, "rev4_reversed_bpb": 8.692, "rev4_ratio": 5.6865, "rev8_intact_bpb": 1.4528, "rev8_reversed_bpb": 8.9455, "rev8_ratio": 6.1573, "step": 800, "train_loss": 1.0679, "elapsed_s": 114.9322}
+step 800 loss 1.0675 115s
+step 850 loss 0.9592 123s
+step 900 loss 1.0301 130s
+step 950 loss 0.9877 138s
+step 1000 loss 0.9793 145s
+step 1050 loss 0.9491 152s
+step 1100 loss 0.9452 159s
+step 1150 loss 0.9677 166s
+EVAL {"val_bpb": 1.5113, "rev2_intact_bpb": 1.4857, "rev2_reversed_bpb": 8.2565, "rev2_ratio": 5.5571, "rev4_intact_bpb": 1.4213, "rev4_reversed_bpb": 9.114, "rev4_ratio": 6.4122, "rev8_intact_bpb": 1.3468, "rev8_reversed_bpb": 9.3682, "rev8_ratio": 6.9557, "step": 1200, "train_loss": 0.9754, "elapsed_s": 173.1366}

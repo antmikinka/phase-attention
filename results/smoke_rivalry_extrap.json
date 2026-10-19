@@ -1,0 +1,56 @@
+{
+ "baseline_s0": {
+  "task": "rivalry_extrap",
+  "arm": "baseline",
+  "seed": 0,
+  "config": {
+   "vocab_size": 19,
+   "n_channels": 2,
+   "d_model": 128,
+   "n_layers": 4,
+   "n_heads": 4,
+   "mlp_mult": 2.6666666666666665,
+   "attention": "causal",
+   "attention_kwargs": {},
+   "rope_chunk": 1,
+   "arch": "baseline",
+   "n_streams": 2,
+   "period": 4,
+   "schedule": "fixed",
+   "inhibition": true,
+   "tie_embeddings": true
+  },
+  "args": {
+   "task": "rivalry",
+   "arm": "baseline",
+   "steps": 3000,
+   "batch": 32,
+   "seq": 48,
+   "d_model": 128,
+   "n_layers": 4,
+   "n_heads": 4,
+   "period": 4,
+   "lr": 0.003,
+   "seed": 0,
+   "threads": 2,
+   "eval_every": 1000,
+   "recall": "extrap",
+   "delay": 8,
+   "data": "data/tinystories_valid.txt",
+   "out": "results/smoke_rivalry_extrap.json"
+  },
+  "n_params": 796544,
+  "evals": [
+   {
+    "dom_acc": 0.7406339049339294,
+    "recall_acc": 0.767578125,
+    "probe_sup_next_final": 0.3586856722831726,
+    "probe_sup_delay_final": 0.06982421875,
+    "probe_dom_next_final": 0.7335707545280457,
+    "step": 1000,
+    "train_loss": 0.9691019058227539,
+    "elapsed_s": 49.413116455078125
+   }
+  ]
+ }
+}

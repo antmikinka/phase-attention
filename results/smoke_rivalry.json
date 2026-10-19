@@ -498,5 +498,79 @@
    ],
    "access_gain_mean": 0.9472914338111877
   }
+ },
+ "baseline_2x_s0": {
+  "task": "rivalry_last",
+  "arm": "baseline_2x",
+  "seed": 0,
+  "config": {
+   "vocab_size": 19,
+   "n_channels": 2,
+   "d_model": 128,
+   "n_layers": 8,
+   "n_heads": 4,
+   "mlp_mult": 2.6666666666666665,
+   "attention": "causal",
+   "attention_kwargs": {},
+   "rope_chunk": 1,
+   "arch": "baseline",
+   "n_streams": 2,
+   "period": 4,
+   "schedule": "fixed",
+   "inhibition": true,
+   "tie_embeddings": true
+  },
+  "args": {
+   "task": "rivalry",
+   "arm": "baseline_2x",
+   "steps": 3000,
+   "batch": 32,
+   "seq": 48,
+   "d_model": 128,
+   "n_layers": 4,
+   "n_heads": 4,
+   "period": 4,
+   "lr": 0.003,
+   "seed": 0,
+   "threads": 2,
+   "eval_every": 1000,
+   "recall": "last",
+   "delay": 8,
+   "data": "data/tinystories_valid.txt",
+   "out": "results/smoke_rivalry.json"
+  },
+  "n_params": 1588096,
+  "evals": [
+   {
+    "dom_acc": 0.4139293432235718,
+    "recall_acc": 0.583984375,
+    "probe_sup_next_final": 0.35983455181121826,
+    "probe_sup_delay_final": 0.14404296875,
+    "probe_dom_next_final": 0.4293428361415863,
+    "step": 1000,
+    "train_loss": 2.0906105041503906,
+    "elapsed_s": 105.2353343963623
+   },
+   {
+    "dom_acc": 0.8071733117103577,
+    "recall_acc": 0.97265625,
+    "probe_sup_next_final": 0.4052159786224365,
+    "probe_sup_delay_final": 0.1484375,
+    "probe_dom_next_final": 0.7599954009056091,
+    "step": 2000,
+    "train_loss": 0.5142788290977478,
+    "elapsed_s": 211.02365612983704
+   },
+   {
+    "dom_acc": 0.8969282507896423,
+    "recall_acc": 1.0,
+    "probe_sup_next_final": 0.3794806897640228,
+    "probe_sup_delay_final": 0.13232421875,
+    "probe_dom_next_final": 0.8699448704719543,
+    "step": 3000,
+    "train_loss": 0.2948143482208252,
+    "elapsed_s": 317.558527469635
+   }
+  ]
  }
 }
