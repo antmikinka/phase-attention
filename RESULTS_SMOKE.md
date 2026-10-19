@@ -33,7 +33,9 @@
 
 | arm | params | steps | dominant report acc | suppressed query acc | probe: suppressed next (z / best stream) | probe: suppressed during noise (z / best stream) | probe: dominant next (z) |
 |---|---|---|---|---|---|---|---|
-| baseline | 796,544 | 1000 | 74.1 | 76.8 | 35.9 / – | 7.0 / – | 73.4 |
+| baseline | 796,544 | 3000 | 96.2 | 100.0 | 26.4 / – | 6.3 / – | 96.3 |
+| phase_fixed | 796,936 | 3000 | 97.7 | 100.0 | 13.5 / 17.2 | 6.6 / 6.5 | 97.5 |
+| phase_all | 796,936 | 2000 | 49.0 | 51.0 | 18.3 / 21.6 | 7.1 / 7.7 | 51.0 |
 
 ### byte-level TinyStories LM (val bpb, 64×128 bytes; reversal = context reversed inside chunks of C bytes, scored at chunk ends)
 
