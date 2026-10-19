@@ -1,0 +1,6 @@
+data/*.txt
+__pycache__/
+*.pyc
+.venv/
+*.pt
+results/*.tmp

@@ -1,0 +1,64 @@
+{
+ "baseline_s0": {
+  "task": "rivalry",
+  "arm": "baseline",
+  "seed": 0,
+  "config": {
+   "vocab_size": 19,
+   "n_channels": 2,
+   "d_model": 128,
+   "n_layers": 4,
+   "n_heads": 4,
+   "mlp_mult": 2.6666666666666665,
+   "attention": "causal",
+   "attention_kwargs": {},
+   "rope_chunk": 1,
+   "arch": "baseline",
+   "n_streams": 2,
+   "period": 4,
+   "schedule": "fixed",
+   "inhibition": true,
+   "tie_embeddings": true
+  },
+  "args": {
+   "task": "rivalry",
+   "arm": "baseline",
+   "steps": 3000,
+   "batch": 32,
+   "seq": 48,
+   "d_model": 128,
+   "n_layers": 4,
+   "n_heads": 4,
+   "period": 4,
+   "lr": 0.003,
+   "seed": 0,
+   "threads": 2,
+   "eval_every": 1000,
+   "data": "data/tinystories_valid.txt",
+   "out": "results/smoke_rivalry.json"
+  },
+  "n_params": 796544,
+  "evals": [
+   {
+    "dom_acc": 0.9777166247367859,
+    "recall_acc": 0.994140625,
+    "probe_sup_next_final": 0.09283088147640228,
+    "probe_sup_delay_final": 0.09521484375,
+    "probe_dom_next_final": 0.9813878536224365,
+    "step": 1000,
+    "train_loss": 0.2078227400779724,
+    "elapsed_s": 49.660624742507935
+   },
+   {
+    "dom_acc": 0.9998668432235718,
+    "recall_acc": 1.0,
+    "probe_sup_next_final": 0.09512867778539658,
+    "probe_sup_delay_final": 0.0908203125,
+    "probe_dom_next_final": 0.9989659786224365,
+    "step": 2000,
+    "train_loss": 0.12222038209438324,
+    "elapsed_s": 102.96305227279663
+   }
+  ]
+ }
+}
