@@ -31,6 +31,8 @@ ARMS = {
     # domain-adaptation control: same trainable knobs, but phase starts as the identity (gain=supp=1, no suppression)
     "CTRL_identity_trainable": dict(rules=[{"layers": MID, "attention": {**HARD, "supp": 1.0, "train_supp": True}},
                                            {"layers": MID, "extra": RESTORE}], gate_w=0.0),
+    # small control matched to hard_alone / soft_track (per-head biases + output gains only, no adapter)
+    "CTRL_identity_small": dict(rules=[{"layers": MID, "attention": {**HARD, "supp": 1.0, "train_supp": True}}], gate_w=0.0),
 }
 NEW_KEYS = ("log_gain", "log_out", "log_supp", "phase_offset", "log_period", "log_psharp", "lam_p", "mix_p",
             "alpha_logit", "tau_p", "log_sharp", "adapter", "blend_logit")
