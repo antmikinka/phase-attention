@@ -1,66 +1,82 @@
-# Architecture
+# Architecture: Qwen3-0.6B with new layer types (zero-training surgery)
 
-## 1. Baseline block with a swappable attention interface
+The main track is now a **from-scratch Qwen3 model definition** (`qwen_arch/`). It loads the pretrained `Qwen/Qwen3-0.6B` weights, and each layer can swap in or add new layer types. Nothing is trained.
 
+With every new layer disabled, the model is **bitwise identical** to HF `Qwen3ForCausalLM`: `torch.equal` holds on the logits in fp32 with SDPA. The test `test_real_qwen3_bitwise_equal_to_hf` checks this.
+
+The earlier tiny-model prototype is described in [ARCHITECTURE_TINY.md](ARCHITECTURE_TINY.md) and is paused.
+
+## Per-layer spec and registries
+
+```python
+rules = [
+  {"layers": "8-19",        "attention": {"type": "phase", "mode": "kv", "period": 4, "gain": 2.0, "supp": 1.0}},
+  {"layers": "14-27",       "position":  {"type": "chunk_rope", "chunk": 4}},
+  {"layers": "every4@8-19", "extra":     {"type": "tracking", "alpha": 0.9, "lam": 0.05, "gate": "harmony"}},
+]
+model = PhaseQwen3ForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", rules=rules)
 ```
-ids ──► MultiEmbedding (sum over channels; 2 channels = left/right eye)
-        │
-        ▼
-   ┌──────────── Block × L ────────────┐
-   │ x = x + Attention(RMSNorm(x), rope)│  ◄── ATTENTION_REGISTRY[cfg.attention]
-   │ x = x + SwiGLU(RMSNorm(x))         │
-   └────────────────────────────────────┘
-        │
-        ▼
-   RMSNorm ─► tied LM head
-```
 
-* The `Attention` interface is `forward(x: (B,T,D), rope: RotaryEmbedding) -> (B,T,D)`.
-* `causal`: standard multi-head attention with RoPE, using `scaled_dot_product_attention`. This is the baseline.
-* `phase_mask`: an ablation. A query in phase k = ⌊t/P⌋ mod K only attends to keys in phase k. It has the same parameters and FLOPs as the baseline.
-* **To update the attention later:** subclass `Attention`, add `@register_attention("my_attn")` and set `ModelConfig(attention="my_attn")`.
-* `RotaryEmbedding(chunk=C)`: **CoarseRoPE**. Token t gets position ⌊t/C⌋, so positions only encode order *between* chunks.
+* **Layer selectors:** `all`, `none`, `8-19`, `0,4,8`, `every4`, `every4@8-19`. Later rules override earlier ones, and `extra` layers are appended.
+* **Registries** (`qwen_arch/registry.py`): there are three, for `attention`, `position` and `extra`. A new type is added with `@register(kind, name)`, then selected by name in a rule.
+* **Generation:** the model has its own KV cache. Phase masks use absolute positions, and the tracking state is carried in the cache. Tests check that cached decoding equals the full forward pass for every layer type.
 
-## 2. PhaseLM: phase-alternating multi-stream prototype (PhaseAttention v0)
+## Diagram
 
 ```mermaid
 flowchart TB
-  E["x0 = Embed(ids)"] --> S0["stream h⁰ = x0 + s₀"]
-  E --> S1["stream h¹ = x0 + s₁"]
-  E --> Z["workspace z = x0 (continuous 'drone')"]
-  subgraph L["each layer ℓ (SAME weights for every stream)"]
-    S0 --> B0["Block_ℓ(h⁰)"]
-    S1 --> B1["Block_ℓ(h¹)"]
-    B0 <-->|"mutual inhibition −β_ℓ"| B1
-    B0 -->|"Δh⁰ · a₀(t)"| G["access gain ⊙ Σ_k a_k(t) Δh^k"]
-    B1 -->|"Δh¹ · a₁(t)"| G
-    G --> Z2["z += …"]
-    Z2 -->|"feedback γ_ℓ · z"| B0
-    Z2 -->|"feedback γ_ℓ · z"| B1
+  IDS[token ids] --> EMB[embed_tokens]
+  EMB --> LOOP
+  subgraph LOOP["DecoderLayer i (spec chosen per layer)"]
+    direction TB
+    N1[input RMSNorm] --> ATT
+    POS["position type<br/>rope | chunk_rope(C)"] --> ATT
+    ATT["attention type<br/>qwen3 | phase(kv / head)"] --> R1((+))
+    R1 --> N2[post-attn RMSNorm] --> MLP[SwiGLU MLP] --> R2((+))
+    R2 --> EXTRA["extra layers (0..n)<br/>tracking(α, λ, gate)"]
   end
-  Z2 --> H["RMSNorm → LM head (reads z only)"]
-  B0 -.->|"probe: suppressed content"| P["ridge probes"]
-  B1 -.-> P
+  ATT -. "suppressed stream (side buffer)" .-> BUF[(probe / decode)]
+  EXTRA --> NORM[final RMSNorm] --> HEAD["lm_head (tied)"]
 ```
 
-* **Phase schedule `a[b,k,t]`:**
+## New layer types
 
-  | Schedule | Rule | Role |
-  |---|---|---|
-  | `fixed` | stream ⌊t/P⌋ mod K has access | the hypothesis |
-  | `random` | each P-length micro-epoch goes to a random stream | control |
-  | `all` | weight 1/K for every stream | no-phase control |
-  | `learned` | straight-through hard gate from the embedding | v1 |
+### 1. PhaseAttention (`attention.type = "phase"`)
 
-* **Same population:** the streams share every block weight, the way the same IT neurons carry both faces.
-* **Access with gain:** only the access stream's per-layer update enters `z`, scaled by a learned per-channel gain. This mirrors the amplified tuning in conscious epochs.
-* **Continuity:** `z` never resets when the phase switches, and every stream reads it back (Tsao's "drone" analogy).
-* **Suppressed but decodable:** the non-access stream keeps being updated, and ridge probes on `h^k` and on `z` measure what is decodable.
-* **Cost:** K× the block FLOPs. Extra parameters are K·D + D + 2L, about 0.05% of the model.
-* **Unit test:** `test_only_access_stream_reaches_head` checks that a perturbation of stream 1 only changes logits during stream 1's access epochs (with inhibition off).
+This is a drop-in replacement that reuses the pretrained `q/k/v/o_proj` and `q_norm/k_norm`. The same heads time-multiplex between two content streams on a fixed period P, with phase(t) = ⌊t/P⌋ mod 2.
 
-## 3. Local time-reversal (chunk) module
+* **`mode="kv"` (key/value phases):** key s belongs to phase(s). For a query at time t, keys in its own phase form the **access** stream and the other keys form the **suppressed** stream:
 
-* `chunk_reverse(x, C)` reverses tokens *inside* consecutive length-C chunks and keeps the chunk order. This is the token analogue of the 20–50 ms speech manipulation.
-* The evaluation scores only targets at chunk ends (t mod C = C−1), whose visible context is made of whole chunks. It compares bpb with intact context against bpb with locally reversed context. The ratio measures robustness.
-* `CoarseRoPE(C)` is the architectural variant, and `coarse4` in the training script uses it.
+  `y = softmax(QKᵀ/√d + log(gain)·[access] + log(supp)·[suppressed]) · V`
+
+  | Setting | Effect |
+  |---|---|
+  | `gain=supp=1` | exactly stock attention (a mathematical identity) |
+  | `gain>1` | gain boost to the access stream (the preprint reports higher gain in conscious epochs) |
+  | `supp=0` | only the access stream writes to the residual |
+
+  The suppressed stream's own output, `softmax over suppressed keys only · V`, is stored in `attn.buffer["suppressed"]`.
+* **`mode="head"` (head-group alternation):** heads 0–7 (KV heads 0–3) and heads 8–15 (KV heads 4–7) take turns having access every P tokens. The access group's output is scaled by `gain` and the other group's by `supp`, and the suppressed group's output goes to the buffer. `gain=supp=1` is stock.
+* **`out_gain`** scales the whole attention write.
+
+### 2. ChunkRoPE (`position.type = "chunk_rope"`)
+
+* Token t gets RoPE position ⌊t/C⌋·C (`scale="keep"`) or ⌊t/C⌋ (`scale="compress"`).
+* Relative positions therefore only encode order *between* chunks. Inside a chunk, order is visible only through the causal mask. This is the token analogue of locally time-reversed speech staying intelligible.
+* C=1 is stock.
+* The evaluation reverses tokens inside chunks with `chunk_reverse` and scores only chunk-end targets.
+
+### 3. Tracking layer (`extra.type = "tracking"`)
+
+This layer is inserted after a decoder layer, after Tsao's "drone" analogy: a continuous slow state that phase content couples to.
+
+* The state m_t is a causal, bias-corrected EMA of the residual over earlier positions. It excludes t itself and skips the attention sink at position 0.
+* The update is `h_t ← h_t + λ·c_t·(m_t − h_t)`, where the gate c_t is one of:
+
+  | Gate | Rule |
+  |---|---|
+  | `harmony` | `sigmoid(k·(cos(h_t, m_t) − τ))`: couple only when consistent with the tracked state |
+  | `always` | 1 |
+  | `phase` | couple on alternate micro-epochs only |
+
+* λ=0 is the identity.

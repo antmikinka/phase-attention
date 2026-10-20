@@ -1,5 +1,29 @@
 # phase-attention (private)
 
+**Main track: zero-training architecture surgery on pretrained Qwen3-0.6B.** `qwen_arch/` is a from-scratch Qwen3 model definition that loads the HF weights. A per-layer spec and a registry decide which layers get which new layer type:
+
+| Layer type | What it does |
+|---|---|
+| **PhaseAttention** | Reuses the pretrained q/k/v/o weights. The same heads alternate every P tokens between an *access* stream, which writes to the residual and can get a gain boost, and a *suppressed* stream, which is kept in a side buffer and can be decoded. Modes: `kv` (key phases) and `head` (head-group alternation). |
+| **ChunkRoPE** | Tokens inside a chunk of C share a RoPE position, so order only matters between chunks. |
+| **Tracking** | A continuous slow EMA state that the residual couples to, gated by harmony or by phase. |
+
+With every new layer disabled, the logits are **bitwise identical** to HF `Qwen3ForCausalLM`.
+
+* Design: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+* Measurements: [RESULTS_SURGERY.md](RESULTS_SURGERY.md)
+* Reproduce: `python scripts/run_surgery.py --windows 64` (WikiText-2, first 32,768 test tokens)
+
+```python
+from qwen_arch import PhaseQwen3ForCausalLM
+m = PhaseQwen3ForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", rules=[
+    {"layers": "8-19", "attention": {"type": "phase", "mode": "kv", "period": 4, "gain": 2.0, "supp": 1.0}}])
+```
+
+---
+
+## Earlier tiny-model prototype (paused)
+
 This is a new tiny language-model architecture that trains on a CPU. It has a **clean, swappable attention interface**, and it already includes a first prototype of the attention we plan to swap in later: **PhaseAttention v0**, which is phase-alternating and multi-stream.
 
 Two recent observations inspired it, and they are used **only as engineering metaphors** (see [docs/SOURCES.md](docs/SOURCES.md)):

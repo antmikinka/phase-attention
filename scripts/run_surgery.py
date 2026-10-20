@@ -177,6 +177,7 @@ for name in names:
     key = f"{name}@{args.windows}x{args.seq}"
     if key in res:
         continue
+    m = None; import gc; gc.collect()
     m = build(VARIANTS[name])
     r = {"variant": name, "rules": VARIANTS[name], "windows": args.windows, "seq": args.seq,
          "threads": args.threads}

@@ -1,0 +1,29 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+phase_kv_hard_all ppl 111.657 prefill tps 286.3
+  decode tps 9.94 | The blue </think>  The blue is a color blue.
+phase_head_hard_mid ppl 99.61 prefill tps 182.2
+  probe {"layer": 14, "n_rows": 4056, "token_at_last_suppressed_pos": {"n": 1956, "majority_baseline": 0.09706258028745651, "from_suppressed_buffer": 0.15708811581134796, "from_access_stream": 0.17113664746284485}, "token_at_last_access_pos": {"n": 1933, "majority_baseline": 0.09689922630786896, "from_suppressed_buffer": 0.1899224817752838, "from_access_stream": 0.18733850121498108}}
+  decode tps 9.12 | Okay, let's break this down. The user is asking about the sky. So, the first part is about the sky. The sky is blue, but
+phase_head_soft_mid ppl 35.47 prefill tps 278.3
+  decode tps 9.84 | The sky is blue because of the way light interacts with the atmosphere, where shorter wavelengths of light (blue) are sc
+chunk2_all ppl 43.755 prefill tps 284.9
+  reversal {'intact': 44.14176731564716, 'reversed': 693.3545470487927, 'ratio': 15.707448731963565, 'chunk': 2}
+  decode tps 11.74 | The sky appears blue because of the scattering of sunlight by the Earth's atmosphere, which causes shorter wavelengths t
+chunk4_all ppl 73.601 prefill tps 289.1
+  reversal {'intact': 77.86820835974082, 'reversed': 1776.059138459162, 'ratio': 22.808527072486424, 'chunk': 4}
+  decode tps 11.96 | The sky is blue because of the Earth's atmosphere.
+chunk8_all ppl 101.073 prefill tps 277.0
+  reversal {'intact': 153.9003937814317, 'reversed': 1984.2450918964905, 'ratio': 12.89304752991407, 'chunk': 8}
+  decode tps 11.8 | <think> </think>  The sky appears blue because of the blue color is due to the way of the light waves that it is is the 
+chunk4_upper ppl 31.763 prefill tps 285.6
+  reversal {'intact': 31.884878412773705, 'reversed': 1709.5586889483054, 'ratio': 53.61659739820186, 'chunk': 4}
+  decode tps 11.57 | The sky appears blue because of the way light interacts with the Earth's atmosphere, where shorter wavelengths of light 
+track_harmony_mid ppl 29.215 prefill tps 285.6
+  decode tps 9.97 | The sky appears blue because of the scattering of sunlight by the Earth's atmosphere, which causes shorter wavelengths o
+track_always_mid ppl 29.287 prefill tps 271.7
+  decode tps 10.01 | The sky appears blue because of the scattering of sunlight by the Earth's atmosphere, which disperses shorter wavelength
+track_phase_mid ppl 29.063 prefill tps 278.6
+  decode tps 10.15 | The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, scattering shorter wavelengths o
+combo_kvsoft_track ppl 29.821 prefill tps 270.5
+  decode tps 10.61 | The sky appears blue because of the scattering of sunlight by the atmosphere, which causes shorter wavelengths (blue lig
+DONE

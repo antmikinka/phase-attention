@@ -1,0 +1,17 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:   1%|          | 2/311 [00:00<00:18, 16.53it/s]Loading weights:  71%|███████   | 221/311 [00:00<00:00, 1192.89it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 1131.70it/s]
+stock ppl 28.912 prefill tps 348.3
+  reversal {'intact': 29.82541191068852, 'reversed': 1858.5461191571544, 'ratio': 62.31418109907505, 'chunk': 4}
+  decode tps 12.91 | The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, scattering shorter wavelengths o
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:   0%|          | 1/311 [00:00<00:48,  6.34it/s]Loading weights:  65%|██████▍   | 202/311 [00:00<00:00, 955.04it/s]Loading weights: 100%|██████████| 311/311 [00:00<00:00, 587.11it/s]
+phase_kv_identity_all ppl 28.912 prefill tps 349.7
+  decode tps 12.83 | The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, scattering shorter wavelengths o
+phase_kv_soft_mid ppl 29.527 prefill tps 310.3
+  probe {"layer": 14, "n_rows": 4056, "token_at_last_suppressed_pos": {"n": 1956, "majority_baseline": 0.09706258028745651, "from_suppressed_buffer": 0.26564496755599976, "from_access_stream": 0.2222222238779068}, "token_at_last_access_pos": {"n": 1933, "majority_baseline": 0.09689922630786896, "from_suppressed_buffer": 0.17958655953407288, "from_access_stream": 0.36692506074905396}}
+  decode tps 12.75 | The sky appears blue because of the scattering of sunlight by the atmosphere, which causes shorter wavelengths (blue lig
+phase_kv_hard_mid ppl 116.479 prefill tps 356.0
+  probe {"layer": 14, "n_rows": 4056, "token_at_last_suppressed_pos": {"n": 1956, "majority_baseline": 0.09706258028745651, "from_suppressed_buffer": 0.28480204939842224, "from_access_stream": 0.2120051085948944}, "token_at_last_access_pos": {"n": 1933, "majority_baseline": 0.09689922630786896, "from_suppressed_buffer": 0.10852713137865067, "from_access_stream": 0.3927648663520813}}
+  decode tps 12.33 | 
+phase_kv_hard_mid_P16 ppl 112.616 prefill tps 320.1
+  probe {"layer": 14, "n_rows": 3960, "token_at_last_suppressed_pos": {"n": 2172, "majority_baseline": 0.05523590371012688, "from_suppressed_buffer": 0.11967778950929642, "from_access_stream": 0.08400460332632065}, "token_at_last_access_pos": {"n": 1895, "majority_baseline": 0.09498680382966995, "from_suppressed_buffer": 0.11873351037502289, "from_access_stream": 0.39050132036209106}}
+  decode tps 4.76 | 
