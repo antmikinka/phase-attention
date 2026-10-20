@@ -28,6 +28,9 @@ ARMS = {
     "chunk4": dict(rules=[{"layers": "all", "position": {"type": "chunk_rope", "chunk": 4, "trainable": True, "blend": 0.99}}], gate_w=0.0),
     "CTRL_hard_restore_either_shuffled": dict(rules=[{"layers": MID, "attention": HARD},
                                                      {"layers": MID, "extra": {**RESTORE, "source": "shuffled"}}], gate_w=0.0),
+    # domain-adaptation control: same trainable knobs, but phase starts as the identity (gain=supp=1, no suppression)
+    "CTRL_identity_trainable": dict(rules=[{"layers": MID, "attention": {**HARD, "supp": 1.0, "train_supp": True}},
+                                           {"layers": MID, "extra": RESTORE}], gate_w=0.0),
 }
 NEW_KEYS = ("log_gain", "log_out", "log_supp", "phase_offset", "log_period", "log_psharp", "lam_p", "mix_p",
             "alpha_logit", "tau_p", "log_sharp", "adapter", "blend_logit")

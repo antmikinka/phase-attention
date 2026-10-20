@@ -113,3 +113,22 @@ flowchart LR
 **Controls:** `source="random"` (norm-matched noise), `source="shuffled"` (a causal buffer from a random earlier position), `source="none"` (tracking only).
 
 **Exactness:** λ=0 is bitwise identical to stock HF, which is tested on the real model.
+
+### 5. Trainable new layers (frozen base) — `"trainable": true`
+
+Any new-layer spec can take `"trainable": true`. Then **only the new-layer parameters** get gradients. All Qwen3-0.6B
+weights stay frozen and are shared with the stock teacher (`scripts/train_new_layers.py`). Every parameter is
+initialised so that the trainable layer starts *exactly* at its untrained (zero-training) behaviour. Gain/supp
+are log-parametrised and rates are logit-parametrised. The adapter up-projection is zero-initialised. Tests
+check that it matches the frozen version at init, that strength 0 is still bitwise stock, that the cache is
+equivalent, and that gradients flow.
+
+| layer | trainable parameters (per layer) |
+|---|---|
+| PhaseAttention (kv) | `log_gain[H]` (access bias), `log_supp[H]` (suppressed bias, only with `train_supp`; hard supp=0 stays fixed at −inf), `log_out[H]` (per-head output gain). With `learn_phase`: `phase_offset`, `log_period`, `log_psharp` give a soft, differentiable phase `½(1 − tanh(k·sin(π(t+½+φ)/P)))` in place of ⌊t/P⌋ mod 2 |
+| suppressed_tracking | `lam_p` (strength), `mix_p`, `alpha_logit` (EMA rate), `tau_p` (harmony threshold), `log_sharp` (sharpness). With `adapter_rank=r`: a low-rank D→r→D adapter on the fed-back signal (2·D·r params) |
+| tracking | `lam_p`, `alpha_logit`, `tau_p`, `log_sharp` |
+| ChunkRoPE | `blend_logit`: positions = (1−β)·t + β·chunk_pos, β = σ(blend_logit), init from `blend` |
+
+Loss: `KL(stock ‖ student) + lm_w·CE + gate_w·mean(gate)`, with lm_w = 0.2. Data: WikiText-2 **train** split only.
+Results and caveats are in `RESULTS_TRAINED.md`.
