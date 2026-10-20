@@ -1,0 +1,5 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (2518423 > 131072). Running this sequence through the model will result in indexing errors
+[CTRL_identity_aux0.1] trainable new-layer params 197,244; readout params 794,884
+resumed at step 150
+[CTRL_identity_aux0.1] ppl 25.521 gate 0.9940756886110952 open 0.9976888666860759 readout {'4': 0.09326171875, '12': 0.041748046875, '28': 0.03857421875, '60': 0.02783203125} fresh {'1': 0.2890625, '4': 0.06787109375, '8': 0.03662109375, '12': 0.03662109375, '28': 0.028564453125, '32': 0.02783203125, '60': 0.023681640625}
+DONE CTRL_identity_aux0.1
