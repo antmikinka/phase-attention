@@ -1,7 +1,7 @@
-data/*.txt
-__pycache__/
+*.pt
 *.pyc
 .venv/
-*.pt
-results/*.tmp
+__pycache__/
 ckpt/
+data/*.txt
+results/*.tmp
