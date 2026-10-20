@@ -1,0 +1,37 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (2518423 > 131072). Running this sequence through the model will result in indexing errors
+[hard_restore_detach] trainable new-layer params 197,052; readout params 794,884
+/workspace/phase-attention/scripts/train_retention.py:162: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  tot[kk] += float(v) / args.accum
+{'step': 5, 'kl': 0.0238, 'ce': 4.09128, 'aux': 5.8391, 'gate': 0.81761, 's': 17.3}
+{'step': 10, 'kl': 0.01671, 'ce': 3.2505, 'aux': 5.76765, 'gate': 0.85881, 's': 32.7}
+{'step': 15, 'kl': 0.01348, 'ce': 3.67624, 'aux': 5.40635, 'gate': 0.90623, 's': 47.3}
+{'step': 20, 'kl': 0.01021, 'ce': 3.72277, 'aux': 5.54656, 'gate': 0.93603, 's': 62.4}
+{'step': 25, 'kl': 0.01139, 'ce': 3.98645, 'aux': 5.87058, 'gate': 0.93349, 's': 81.6}
+{'step': 30, 'kl': 0.00836, 'ce': 3.09153, 'aux': 5.42872, 'gate': 0.95278, 's': 103.5}
+{'step': 35, 'kl': 0.00759, 'ce': 3.52267, 'aux': 5.30929, 'gate': 0.95735, 's': 118.8}
+{'step': 40, 'kl': 0.00947, 'ce': 3.75371, 'aux': 4.85477, 'gate': 0.97026, 's': 134.0}
+{'step': 45, 'kl': 0.01211, 'ce': 3.91481, 'aux': 5.3444, 'gate': 0.9756, 's': 147.3}
+{'step': 50, 'kl': 0.01145, 'ce': 3.3846, 'aux': 5.30754, 'gate': 0.97693, 's': 160.6}
+{'step': 55, 'kl': 0.01242, 'ce': 3.44285, 'aux': 5.3311, 'gate': 0.97942, 's': 174.0}
+{'step': 60, 'kl': 0.01268, 'ce': 3.6102, 'aux': 5.37034, 'gate': 0.98234, 's': 188.1}
+{'step': 65, 'kl': 0.01221, 'ce': 3.82441, 'aux': 5.59834, 'gate': 0.98358, 's': 202.0}
+{'step': 70, 'kl': 0.01248, 'ce': 3.81855, 'aux': 5.50557, 'gate': 0.98624, 's': 217.9}
+{'step': 75, 'kl': 0.01156, 'ce': 3.76228, 'aux': 5.64648, 'gate': 0.97816, 's': 235.4}
+{'step': 80, 'kl': 0.00786, 'ce': 3.16579, 'aux': 5.77739, 'gate': 0.98953, 's': 249.1}
+{'step': 85, 'kl': 0.01207, 'ce': 4.04905, 'aux': 5.32625, 'gate': 0.99031, 's': 263.5}
+{'step': 90, 'kl': 0.01233, 'ce': 3.32617, 'aux': 5.95848, 'gate': 0.98911, 's': 277.1}
+{'step': 95, 'kl': 0.01208, 'ce': 3.17146, 'aux': 5.59948, 'gate': 0.99016, 's': 290.7}
+{'step': 100, 'kl': 0.00868, 'ce': 3.51054, 'aux': 5.71738, 'gate': 0.9878, 's': 304.1}
+{'step': 105, 'kl': 0.01762, 'ce': 3.22099, 'aux': 5.45601, 'gate': 0.99199, 's': 318.4}
+{'step': 110, 'kl': 0.00862, 'ce': 3.30548, 'aux': 5.76072, 'gate': 0.98996, 's': 331.7}
+{'step': 115, 'kl': 0.00983, 'ce': 2.98513, 'aux': 5.85176, 'gate': 0.99036, 's': 345.5}
+{'step': 120, 'kl': 0.01881, 'ce': 3.78903, 'aux': 5.40184, 'gate': 0.99359, 's': 364.3}
+{'step': 125, 'kl': 0.01196, 'ce': 3.78306, 'aux': 5.72751, 'gate': 0.99463, 's': 378.5}
+{'step': 130, 'kl': 0.01548, 'ce': 3.38517, 'aux': 5.78608, 'gate': 0.98853, 's': 392.2}
+{'step': 135, 'kl': 0.01068, 'ce': 4.12561, 'aux': 5.60826, 'gate': 0.99035, 's': 405.7}
+{'step': 140, 'kl': 0.01219, 'ce': 3.75695, 'aux': 5.48508, 'gate': 0.99449, 's': 418.6}
+{'step': 145, 'kl': 0.01359, 'ce': 3.3291, 'aux': 5.46432, 'gate': 0.99221, 's': 432.7}
+{'step': 150, 'kl': 0.01182, 'ce': 2.76961, 'aux': 5.12239, 'gate': 0.99484, 's': 445.8}
+[hard_restore_detach] ppl 25.859 gate 0.9953640790190548 open 0.9986418617578844 readout {'4': 0.092041015625, '12': 0.04345703125, '28': 0.041015625, '60': 0.0283203125} fresh {'1': 0.2890625, '4': 0.06640625, '8': 0.036865234375, '12': 0.0380859375, '28': 0.02783203125, '32': 0.0283203125, '60': 0.0244140625}
+DONE hard_restore_detach
