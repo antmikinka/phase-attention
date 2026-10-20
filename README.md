@@ -22,6 +22,13 @@ m = PhaseQwen3ForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", rules=[
 
 ---
 
+## Trained new layers (frozen base) — see `RESULTS_TRAINED.md`
+
+Only the new-layer parameters were trained (Qwen3-0.6B frozen; KL to stock + LM + gate penalty; WikiText-2 train).
+Every arm beats stock ppl on WikiText-2 test. Matched identity controls with the same knobs and **no** suppression
+do as well or better. Training rescues hard phase only by switching it off (sharpness → 0.6, gain ≈ supp,
+tracking λ → 0). The shuffled-buffer control is much worse than the real suppressed stream.
+
 ## Earlier tiny-model prototype (paused)
 
 This is a new tiny language-model architecture that trains on a CPU. It has a **clean, swappable attention interface**, and it already includes a first prototype of the attention we plan to swap in later: **PhaseAttention v0**, which is phase-alternating and multi-stream.

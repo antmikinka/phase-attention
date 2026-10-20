@@ -132,3 +132,7 @@ equivalent, and that gradients flow.
 
 Loss: `KL(stock ‖ student) + lm_w·CE + gate_w·mean(gate)`, with lm_w = 0.2. Data: WikiText-2 **train** split only.
 Results and caveats are in `RESULTS_TRAINED.md`.
+
+**Outcome (RESULTS_TRAINED.md):** with a frozen base, the trainable phase knobs drift back toward the identity.
+Restore gates open fully (gw = 0), soft-phase sharpness collapses, gain/supp equalise, the ChunkRoPE blend falls.
+Phase arms are worse than, or tied with, knob-matched identity controls (`CTRL_identity_trainable`, `CTRL_identity_small`).
