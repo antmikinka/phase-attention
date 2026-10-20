@@ -17,6 +17,11 @@ import torch.nn.functional as F
 from .registry import register
 
 
+def _logit(x):
+    x = min(max(float(x), 1e-3), 1 - 1e-3)
+    return math.log(x / (1 - x))
+
+
 # ============================================================ positions
 @register("position", "rope")
 class RotaryPositions(nn.Module):
@@ -45,13 +50,19 @@ class ChunkRoPE(RotaryPositions):
     within a chunk, order is visible only through the causal mask.
     C=1 == stock RoPE."""
 
-    def __init__(self, c, chunk: int = 4, scale: str = "keep", **kw):
+    def __init__(self, c, chunk: int = 4, scale: str = "keep", trainable: bool = False, blend: float = 0.99, **kw):
         super().__init__(c)
-        self.chunk, self.scale = int(chunk), scale
+        self.chunk, self.scale, self.trainable = int(chunk), scale, bool(trainable)
+        if self.trainable:   # learnable blend between stock positions (0) and chunk positions (1)
+            self.blend_logit = nn.Parameter(torch.tensor(_logit(blend)))
 
     def position_ids(self, pos):
         cidx = torch.div(pos, self.chunk, rounding_mode="floor")
-        return cidx * self.chunk if self.scale == "keep" else cidx
+        cp = cidx * self.chunk if self.scale == "keep" else cidx
+        if self.trainable:
+            b = torch.sigmoid(self.blend_logit)
+            return (1 - b) * pos.float() + b * cp.float()
+        return cp
 
 
 def rotate_half(x):
@@ -150,11 +161,29 @@ class PhaseAttention(Qwen3Attention):
         super().__init__(c, idx)
         self.mode, self.period, self.gain, self.supp = mode, int(period), float(gain), float(supp)
         self.offset, self.out_gain = int(offset), float(out_gain)
+        # ---- trainable set (only created when trainable=True; the float path stays bit-exact) ----
+        self.trainable = bool(kw.get("trainable", False))
+        self.train_supp = bool(kw.get("train_supp", False))
+        self.learn_phase = bool(kw.get("learn_phase", False))
+        if self.trainable:
+            H = self.H
+            self.log_gain = nn.Parameter(torch.full((H,), math.log(self.gain)))          # access gain per head
+            self.log_out = nn.Parameter(torch.full((H,), math.log(self.out_gain)))       # write gain per head
+            if self.train_supp:
+                assert self.supp > 0, "train_supp needs supp > 0 (log-parameterised)"
+                self.log_supp = nn.Parameter(torch.full((H,), math.log(self.supp)))
+            if self.learn_phase:   # soft square-wave phase with learnable offset, period and sharpness
+                self.phase_offset = nn.Parameter(torch.tensor(float(self.offset)))
+                self.log_period = nn.Parameter(torch.tensor(math.log(self.period)))
+                self.log_psharp = nn.Parameter(torch.tensor(math.log(float(kw.get("phase_sharp", 20.0)))))
 
     def forward(self, x, cos, sin, pos, cache=None):
         B, T, _ = x.shape
         q, k, v, kpos = self.qkv(x, cos, sin, pos, cache)
         qph = phase_of(pos, self.period, self.offset)
+        if self.mode == "kv" and self.trainable:
+            y = self._forward_kv_trainable(q, k, v, pos, kpos, B, T)
+            return self.o_proj(y.transpose(1, 2).reshape(B, T, -1))
         if self.mode == "kv":
             kph = phase_of(kpos, self.period, self.offset)
             causal = kpos[None, :] <= pos[:, None]                    # T,S
@@ -202,11 +231,88 @@ class PhaseAttention(Qwen3Attention):
         return self.out_gain * self.o_proj(y.transpose(1, 2).reshape(B, T, -1))
 
 
+    def soft_phase(self, p):
+        """~0 for phase 0, ~1 for phase 1; differentiable in offset/period/sharpness."""
+        P = self.log_period.exp()
+        return 0.5 * (1 - torch.tanh(self.log_psharp.exp() * torch.sin(math.pi * (p.float() + 0.5 + self.phase_offset) / P)))
+
+    def _forward_kv_trainable(self, q, k, v, pos, kpos, B, T):
+        S = k.shape[2]
+        causal = kpos[None, :] <= pos[:, None]
+        gain = self.log_gain.exp()[:, None, None]                                   # H,1,1
+        if self.learn_phase:
+            pq, pk = self.soft_phase(pos), self.soft_phase(kpos)
+            A = pq[:, None] * pk[None, :] + (1 - pq[:, None]) * (1 - pk[None, :])   # soft "same phase" T,S
+            access = (A > 0.5) & causal
+            sup_w = self.log_supp.exp()[:, None, None] if self.train_supp else self.supp
+            bias = torch.log(gain * A + sup_w * (1 - A) + 1e-9)                     # H,T,S
+        else:
+            qph, kph = phase_of(pos, self.period, self.offset), phase_of(kpos, self.period, self.offset)
+            access = (kph[None, :] == qph[:, None]) & causal
+            if self.train_supp:
+                lsup = self.log_supp[:, None, None]
+            else:
+                lsup = torch.tensor(math.log(self.supp) if self.supp > 0 else float("-inf"))
+            bias = torch.where(access, gain.log().expand(-1, T, S), lsup.expand(self.H, T, S) if lsup.dim() else lsup)
+        supp = (~access) & causal
+        bias = bias.masked_fill(~causal, float("-inf"))
+        y = F.scaled_dot_product_attention(q, k, v, attn_mask=bias[None], scale=self.scale)
+        if self.record or self.expose:
+            sm = torch.zeros(T, S).masked_fill(~supp, float("-inf"))
+            ys = torch.nan_to_num(F.scaled_dot_product_attention(q, k, v, attn_mask=sm, scale=self.scale), nan=0.0)
+            ys = ys * supp.any(-1)[None, None, :, None]
+            if self.expose:
+                self.side = self.o_proj(ys.transpose(1, 2).reshape(B, T, -1))
+                sc = (q @ k.transpose(-1, -2)) * self.scale
+                lse_a = sc.masked_fill(~access, float("-inf")).logsumexp(-1)
+                lse_s = sc.masked_fill(~supp, float("-inf")).logsumexp(-1)
+                w_sup = torch.exp(lse_s - torch.logaddexp(lse_a, lse_s)).nan_to_num(0.0)[..., None]
+                am = torch.zeros(T, S).masked_fill(~access, float("-inf"))
+                ya = F.scaled_dot_product_attention(q, k, v, attn_mask=am, scale=self.scale)
+                self.side_restore = self.o_proj(((1 - w_sup) * ya + w_sup * ys - y).transpose(1, 2).reshape(B, T, -1))
+            if self.record:
+                self.buffer = {"suppressed": ys.transpose(1, 2).reshape(B, T, -1).detach(),
+                               "access_stream": y.transpose(1, 2).reshape(B, T, -1).detach(),
+                               "qphase": phase_of(pos, self.period, self.offset)}
+        return y * self.log_out.exp()[None, :, None, None]
+
+
 # ============================================================ extra layers
 class ExtraLayer(nn.Module):
+    """Base for inserted layers. With trainable=True the scalar knobs listed in
+    TRAINABLE become nn.Parameters (lam, mix, tau raw; alpha via sigmoid; sharp via
+    exp) and are materialised into the usual attributes at the start of forward,
+    so the forward code is shared with the frozen float path."""
+    TRAINABLE = ()
+
     def __init__(self, c, idx, **kw):
         super().__init__()
         self.idx = idx
+        self.trainable = bool(kw.get("trainable", False))
+        self.last_gate = None
+
+    def _make_trainable(self):
+        if not self.trainable:
+            return
+        for name in self.TRAINABLE:
+            v = getattr(self, name)
+            if name == "alpha":
+                setattr(self, "alpha_logit", nn.Parameter(torch.tensor(_logit(v))))
+            elif name == "sharp":
+                setattr(self, "log_sharp", nn.Parameter(torch.tensor(math.log(float(v)))))
+            else:
+                setattr(self, name + "_p", nn.Parameter(torch.tensor(float(v))))
+
+    def _materialize(self):
+        if not self.trainable:
+            return
+        for name in self.TRAINABLE:
+            if name == "alpha":
+                object.__setattr__(self, "alpha", torch.sigmoid(self.alpha_logit))
+            elif name == "sharp":
+                object.__setattr__(self, "sharp", self.log_sharp.exp())
+            else:
+                object.__setattr__(self, name, getattr(self, name + "_p") * 1.0)
 
 
 @register("extra", "tracking")
@@ -223,14 +329,18 @@ class TrackingLayer(ExtraLayer):
 
     def __init__(self, c, idx, alpha: float = 0.9, lam: float = 0.05, gate: str = "harmony",
                  tau: float = 0.5, sharp: float = 10.0, period: int = 4, skip_sink: bool = True, **kw):
-        super().__init__(c, idx)
+        super().__init__(c, idx, **kw)
         self.alpha, self.lam, self.gate, self.tau, self.sharp = alpha, lam, gate, tau, sharp
         self.period, self.skip_sink = period, skip_sink
         self.record = False
         self.buffer = {}
+        self._make_trainable()
+
+    TRAINABLE = ("lam", "alpha", "tau", "sharp")
 
     def forward(self, h, pos, cache=None):
-        if self.lam == 0.0:
+        self._materialize()
+        if not self.trainable and self.lam == 0.0:
             return h
         B, T, D = h.shape
         key = f"track{id(self)}"
@@ -262,12 +372,13 @@ class TrackingLayer(ExtraLayer):
         if self.skip_sink:
             cgate = cgate * (pos != 0).float()[None, :]
         out = h + self.lam * cgate[..., None] * (m - h)
+        self.last_gate = cgate
         if cache is not None:  # inclusive state after the last token
             num_T = a * num[:, -1] + w_in[-1] * h[:, -1]
             den_T = a * den[:, -1] + w_in[-1]
             cache[key] = (num_T, den_T)
         if self.record:
-            self.buffer = {"state": m.detach(), "gate": cgate.detach()}
+            self.buffer = {"state": m.detach(), "gate": cgate.detach(), "gate_mean": float(cgate.mean())}
         return out
 
 
@@ -307,15 +418,26 @@ class SuppressedTrackingLayer(ExtraLayer):
     def __init__(self, c, idx, alpha: float = 0.7, lam: float = 0.1, mix: float = 1.0, gate: str = "harmony",
                  tau: float = 0.2, sharp: float = 10.0, period: int = 4, source: str = "suppressed",
                  skip_sink: bool = True, seed: int = 0, coupling: str = "pull", p: float = 0.5, **kw):
-        super().__init__(c, idx)
+        super().__init__(c, idx, **kw)
         self.coupling, self.p = coupling, float(p)
         self.alpha, self.lam, self.mix, self.gate, self.tau, self.sharp = alpha, lam, mix, gate, tau, sharp
         self.period, self.source, self.skip_sink, self.seed = int(period), source, skip_sink, seed
         self.needs_side = lam != 0.0 and source != "none" and mix != 0.0
         # "restore" couples between attention and MLP by default (stage="post_attn")
         self.stage = kw.get("stage", "post_attn" if coupling == "restore" else "post_mlp")
+        self._make_trainable()
+        r = int(kw.get("adapter_rank", 0))
+        self.adapter = None
+        if r > 0:   # small low-rank adapter on the fed-back buffer; zero-init up-proj => starts as identity
+            D = c.hidden_size
+            self.adapter = nn.Sequential(nn.Linear(D, r, bias=False), nn.Linear(r, D, bias=False))
+            nn.init.normal_(self.adapter[0].weight, std=D ** -0.5)
+            nn.init.zeros_(self.adapter[1].weight)
+
         self.record = False
         self.buffer = {}
+
+    TRAINABLE = ("lam", "mix", "alpha", "tau", "sharp")
 
     def _source(self, h, side, pos, cache, key):
         B, T, D = h.shape
@@ -342,11 +464,14 @@ class SuppressedTrackingLayer(ExtraLayer):
         raise ValueError(self.source)
 
     def forward(self, h, pos, cache=None, side=None):
-        if self.lam == 0.0:
+        self._materialize()
+        if not self.trainable and self.lam == 0.0:
             return h
         B, T, D = h.shape
         key = f"strack{id(self)}"
         s = self._source(h, side, pos, cache, key)
+        if self.adapter is not None:
+            s = s + self.adapter(s)
         if self.coupling == "restore":
             u = self.mix * s
         elif self.coupling == "inject":
@@ -390,8 +515,9 @@ class SuppressedTrackingLayer(ExtraLayer):
             cg = cg * (pos != 0).float()[None, :]
         if cache is not None:
             cache[key] = (num[:, -1], den[:, -1])
+        self.last_gate = cg
         if self.record:
-            self.buffer = {"gate_mean": float(cg.mean()), "state": m.detach()}
+            self.buffer = {"gate_mean": float(cg.mean()), "gate_open": float((cg > 0.5).float().mean()), "state": m.detach()}
         if self.coupling == "restore":
             return h + self.lam * cg[..., None] * u      # inject the CURRENT restore signal; slow state only gates
         if self.coupling == "inject":

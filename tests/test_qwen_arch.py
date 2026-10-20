@@ -12,16 +12,25 @@ C = Qwen3Config(vocab_size=64, hidden_size=64, intermediate_size=128, num_hidden
                 num_attention_heads=4, num_key_value_heads=2, head_dim=16)
 
 
+NEW_KEYS = ("log_gain", "log_out", "log_supp", "phase_offset", "log_period", "log_psharp", "lam_p", "mix_p",
+            "alpha_logit", "tau_p", "log_sharp", "adapter", "blend_logit")
+
+
+def is_new(name):
+    return any(k in name for k in NEW_KEYS)
+
+
 def build(rules=None, seed=0):
     torch.manual_seed(seed)
     m = PhaseQwen3ForCausalLM(C, parse_layers(C.num_hidden_layers, rules))
-    for p in m.parameters():
-        torch.nn.init.normal_(p, std=0.2)
+    for n, p in m.named_parameters():
+        if not is_new(n):
+            torch.nn.init.normal_(p, std=0.2)
     return m.eval()
 
 
 def same_weights(a, b):
-    b.load_state_dict(a.state_dict(), strict=False)
+    b.load_state_dict({k: v for k, v in a.state_dict().items() if not is_new(k)}, strict=False)
     return b
 
 
@@ -172,3 +181,62 @@ def test_restore_with_full_gate_recovers_stock_attention():
         y, yb, yh = m(IDS), base(IDS), hard(IDS)
     assert torch.allclose(y, yb, atol=1e-4), (y - yb).abs().max()
     assert not torch.allclose(yh, yb, atol=1e-3)
+
+
+TRULES = [
+    {"layers": "1-2", "attention": {"type": "phase", "mode": "kv", "period": 3, "gain": 1.0, "supp": 0.0, "trainable": True}},
+    {"layers": "1-2", "extra": {"type": "suppressed_tracking", "coupling": "restore", "gate": "either", "tau": 0.5,
+                               "alpha": 0.7, "lam": 1.0, "period": 3, "trainable": True, "adapter_rank": 4}},
+    {"layers": "0", "position": {"type": "chunk_rope", "chunk": 4, "trainable": True}},
+    {"layers": "0", "extra": {"type": "tracking", "lam": 0.1, "gate": "harmony", "trainable": True}},
+]
+
+
+def test_trainable_layers_get_gradients_and_match_frozen_at_init():
+    m = build(TRULES)
+    names = [n for n, p in m.named_parameters() if any(k in n for k in ("log_gain", "log_out", "lam_p", "mix_p", "alpha_logit",
+                                                                        "tau_p", "log_sharp", "adapter", "blend_logit"))]
+    assert len(names) >= 10
+    for p in m.parameters():
+        p.requires_grad_(False)
+    for n, p in m.named_parameters():
+        if n in names:
+            p.requires_grad_(True)
+    y = m(IDS)
+    y.logsumexp(-1).mean().backward()
+    got = {n for n, p in m.named_parameters() if p.grad is not None and p.grad.abs().sum() > 0}
+    assert any("lam_p" in n for n in got) and any("log_gain" in n or "log_out" in n for n in got) and any("blend_logit" in n for n in got)
+    # same model, frozen float path (blend=1 exactly vs 0.99 differs -> compare without chunk/tracking extras)
+    frozen_rules = [dict(r) for r in TRULES[:2]]
+    frozen_rules[0] = {"layers": "1-2", "attention": {k: v for k, v in TRULES[0]["attention"].items() if k != "trainable"}}
+    frozen_rules[1] = {"layers": "1-2", "extra": {k: v for k, v in TRULES[1]["extra"].items() if k not in ("trainable", "adapter_rank")}}
+    t = same_weights(m, build(TRULES[:2]))
+    f = same_weights(m, build(frozen_rules))
+    with torch.no_grad():
+        assert torch.allclose(t(IDS), f(IDS), atol=1e-4)
+
+
+def test_trainable_strength_zero_is_stock():
+    base = build()
+    m = same_weights(base, build([
+        {"layers": "all", "attention": {"type": "phase", "mode": "kv", "period": 3, "gain": 1.0, "supp": 1.0, "trainable": True, "train_supp": True}},
+        {"layers": "all", "extra": {"type": "tracking", "lam": 0.0, "trainable": True}},
+        {"layers": "all", "extra": {"type": "suppressed_tracking", "coupling": "restore", "lam": 0.0, "trainable": True}}]))
+    with torch.no_grad():
+        assert torch.allclose(base(IDS), m(IDS), atol=1e-4)
+
+
+def test_trainable_cache_matches_full():
+    m = build(TRULES)
+    with torch.no_grad():
+        full = m(IDS)
+        caches = m.new_caches()
+        steps = [m(IDS[:, :10], caches, 0)] + [m(IDS[:, t:t + 1], caches, t) for t in range(10, 23)]
+    assert torch.allclose(full, torch.cat(steps, 1), atol=1e-4)
+
+
+def test_learned_soft_phase_close_to_hard():
+    m = build([{"layers": "1", "attention": {"type": "phase", "mode": "kv", "period": 4, "supp": 0.0, "trainable": True,
+                                             "learn_phase": True, "phase_sharp": 50.0}}])
+    ph = m.layers[1].self_attn.soft_phase(torch.arange(16))
+    assert torch.allclose(ph, ((torch.arange(16) // 4) % 2).float(), atol=1e-3)
