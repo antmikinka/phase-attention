@@ -5,7 +5,8 @@ Loss = KL(stock || student) + lm_w*CE + aux_w * mean_k CE(readout_k(h19[t]) -> t
 LAGS = 4, 12, 28, 60 are an odd number of P=4 blocks back, so token[t-k] is always in the *suppressed* phase
 relative to the query t (hard-phase layers 8-19 cannot attend to it directly).
 h19 = residual stream after layer 19 (end of the modified block), parameter-free RMS-normalised.
-Readout_k = Linear(D,64) -> Linear(64,D) -> tied frozen embedding (full-vocab logits); identical for every arm.
+Readout_k = Linear(D,64) -> Linear(64, 2049) (+bias) over the 2048 most frequent TRAIN tokens + 'other'; identical for every arm.
+'other' targets always count as wrong in accuracy.
 Eval on the first 32,768 WikiText-2 TEST tokens: ppl (64x512), trained-readout top-1 retention per lag (positions
 64,71,...,505 of each window), and a FRESH ridge probe fit on TRAIN windows only (top-200 target classes) and scored
 on the test windows, for lags 1,4,8,12,28,32,60 (8,32 = same-phase contrast). -> results/retention.json"""
@@ -51,6 +52,7 @@ ap.add_argument("--lr", type=float, default=0.02)
 ap.add_argument("--lr_adapter", type=float, default=1e-3)
 ap.add_argument("--lr_readout", type=float, default=5e-3)
 ap.add_argument("--lm_w", type=float, default=0.2)
+ap.add_argument("--vocab", type=int, default=2048)
 ap.add_argument("--n_pos", type=int, default=48)
 ap.add_argument("--threads", type=int, default=8)
 ap.add_argument("--eval_windows", type=int, default=64)
@@ -63,16 +65,21 @@ cfg = ARMS[args.arm]
 
 
 class Readout(nn.Module):
-    def __init__(self, D, emb, lags, r=64):
+    """Per lag: Linear(D,64) -> Linear(64, V+1) with bias, over the V most frequent TRAIN-split tokens + 'other'."""
+    def __init__(self, D, vocab, lags, r=64):
         super().__init__()
-        self.lags = lags; self.emb = emb   # frozen tied embedding (not registered as a parameter)
+        self.lags = lags; V = len(vocab)
+        self.register_buffer("lut", torch.full((152000,), V, dtype=torch.long))
+        self.lut[vocab] = torch.arange(V)
         self.down = nn.ModuleList(nn.Linear(D, r, bias=False) for _ in lags)
-        self.up = nn.ModuleList(nn.Linear(r, D, bias=False) for _ in lags)
-        for u in self.up:
-            nn.init.normal_(u.weight, std=0.02)
+        self.up = nn.ModuleList(nn.Linear(r, V + 1) for _ in lags)
+        self.V = V
 
     def forward(self, i, h):
-        return self.up[i](self.down[i](h)) @ self.emb.T
+        return self.up[i](self.down[i](h))
+
+    def target(self, ids):
+        return self.lut[ids]
 
 
 from transformers import AutoTokenizer
@@ -90,7 +97,9 @@ is_new = lambda n: any(k in n for k in NEW_KEYS)
 for n, p in student.named_parameters():
     p.requires_grad_(is_new(n))
 trainable = [(n, p) for n, p in student.named_parameters() if is_new(n)]
-readout = Readout(teacher.config.hidden_size, student.embed_tokens.weight.detach(), LAGS)
+TRAIN = wikitext_ids(tok, "train")         # TRAIN split only
+_v, _c = TRAIN.unique(return_counts=True)
+readout = Readout(teacher.config.hidden_size, _v[_c.argsort(descending=True)[:args.vocab]], LAGS)
 n_new = sum(p.numel() for _, p in trainable); n_read = sum(p.numel() for p in readout.parameters())
 print(f"[{args.arm}] trainable new-layer params {n_new:,}; readout params {n_read:,}", flush=True)
 student.eval()
@@ -122,7 +131,6 @@ if os.path.exists(ck):
     s = torch.load(ck, weights_only=False)
     student.load_state_dict(s["trainable"], strict=False); readout.load_state_dict(s["readout"]); opt.load_state_dict(s["opt"]); step0 = s["step"]
     print(f"resumed at step {step0}", flush=True)
-TRAIN = wikitext_ids(tok, "train")         # TRAIN split only
 if not os.path.exists(final):
     g = torch.Generator().manual_seed(1234); gp = torch.Generator().manual_seed(99)
     for _ in range(step0 * args.accum):
@@ -145,13 +153,15 @@ if not os.path.exists(final):
             aux = 0
             for j, k in enumerate(LAGS):
                 t = torch.randint(k, args.seq, (args.n_pos,), generator=gp)
-                aux = aux + F.cross_entropy(readout(j, h[t]), x[0, t - k]) / len(LAGS)
+                aux = aux + F.cross_entropy(readout(j, h[t]), readout.target(x[0, t - k])) / len(LAGS)
             gl = [e.last_gate[:, 1:].mean() for e in gate_layers(student) if e.last_gate is not None]
             loss = (kl + args.lm_w * ce if trainable else 0) + cfg["aux_w"] * aux
             (loss / args.accum).backward()
             for kk, v in (("kl", kl), ("ce", ce), ("aux", aux), ("gate", torch.stack(gl).mean() if gl else torch.zeros(()))):
                 tot[kk] += float(v) / args.accum
-        torch.nn.utils.clip_grad_norm_([p for _, p in trainable] + list(readout.parameters()), 1.0)
+        if trainable:
+            torch.nn.utils.clip_grad_norm_([p for _, p in trainable], 1.0)
+        torch.nn.utils.clip_grad_norm_(list(readout.parameters()), 1.0)   # clipped separately
         opt.step()
         rec = {"step": step + 1, **{k: round(v, 5) for k, v in tot.items()}, "s": round(time.time() - t0, 1)}
         log.write(json.dumps(rec) + "\n"); log.flush()
@@ -179,7 +189,7 @@ if "eval" not in state:
         for x in WIN:
             student(x); h = rms(H["h"][0]); feats.append(h[POS])
             for j, k in enumerate(LAGS):
-                acc[k].append(float((readout(j, h[POS]).argmax(-1) == x[0, POS - k]).float().mean()))
+                tg = readout.target(x[0, POS - k]); acc[k].append(float(((readout(j, h[POS]).argmax(-1) == tg) & (tg < readout.V)).float().mean()))
         r["readout_acc_per_window"] = {str(k): v for k, v in acc.items()}
         r["readout_acc"] = {str(k): sum(v) / len(v) for k, v in acc.items()}
         # fresh probe: ridge fit on TRAIN windows only, scored on test windows
