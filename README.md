@@ -29,6 +29,11 @@ Every arm beats stock ppl on WikiText-2 test. Matched identity controls with the
 do as well or better. Training rescues hard phase only by switching it off (sharpness → 0.6, gain ≈ supp,
 tracking λ → 0). The shuffled-buffer control is much worse than the real suppressed stream.
 
+## Retention reward — see `RESULTS_RETENTION.md`
+
+A jointly trained readout rewarded keeping suppressed-phase tokens decodable at lags 4–60. No phase arm retained
+more than matched identity / stock controls. The alternation collapsed anyway (gate fully open, sharpness ≈ 0.8).
+
 ## Earlier tiny-model prototype (paused)
 
 This is a new tiny language-model architecture that trains on a CPU. It has a **clean, swappable attention interface**, and it already includes a first prototype of the attention we plan to swap in later: **PhaseAttention v0**, which is phase-alternating and multi-stream.

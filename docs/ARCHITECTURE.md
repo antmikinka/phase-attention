@@ -136,3 +136,10 @@ Results and caveats are in `RESULTS_TRAINED.md`.
 **Outcome (RESULTS_TRAINED.md):** with a frozen base, the trainable phase knobs drift back toward the identity.
 Restore gates open fully (gw = 0), soft-phase sharpness collapses, gain/supp equalise, the ChunkRoPE blend falls.
 Phase arms are worse than, or tied with, knob-matched identity controls (`CTRL_identity_trainable`, `CTRL_identity_small`).
+
+### 6. Retention reward (RESULTS_RETENTION.md)
+
+`scripts/train_retention.py` adds a per-lag readout: Linear(D, 64) → 2049 classes on the residual after layer 19.
+Its loss rewards decoding token[t−k] for suppressed-phase lags k ∈ {4, 12, 28, 60}. It trains jointly with the new
+layers (frozen base). It is evaluated alongside a fresh ridge probe fit on train windows. Result: no advantage over
+matched identity / stock controls. The restore gate still opens fully and the soft-phase sharpness still collapses.
