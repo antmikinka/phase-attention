@@ -107,3 +107,68 @@ def test_real_qwen3_bitwise_equal_to_hf():
     hf = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", dtype=torch.float32, attn_implementation="sdpa").eval()
     with torch.no_grad():
         assert torch.equal(m(ids), hf(ids).logits)
+
+
+ST = lambda **k: {"type": "suppressed_tracking", "alpha": 0.6, "lam": 0.3, "mix": 1.0, "period": 3, **k}
+KVH = {"type": "phase", "mode": "kv", "period": 3, "gain": 1.0, "supp": 0.0}
+
+
+def test_suppressed_tracking_identity_when_lam_zero():
+    base = build()
+    m = same_weights(base, build([{"layers": "all", "attention": {"type": "phase", "mode": "kv", "period": 3}},
+                                  {"layers": "all", "extra": ST(lam=0.0)}]))
+    assert not m.layers[0].self_attn.expose
+    with torch.no_grad():
+        assert torch.equal(base(IDS), m(IDS))
+
+
+@pytest.mark.parametrize("src,gate", [("suppressed", "inject_harmony"), ("suppressed", "restore_harmony"), ("shuffled", "restore_boundary"), ("random", "inject_always"), ("suppressed", "harmony"), ("suppressed", "boundary"), ("suppressed", "either"),
+                                      ("random", "always"), ("shuffled", "always"), ("none", "always")])
+def test_suppressed_tracking_cache_and_causality(src, gate):
+    coup = gate.split("_")[0] if "_" in gate else "pull"
+    gate = gate.split("_")[-1]
+    rules = [{"layers": "1-2", "attention": KVH}, {"layers": "1-2", "extra": ST(source=src, gate=gate, tau=-1.0, coupling=coup)}]
+    m = build(rules)
+    with torch.no_grad():
+        full = m(IDS)
+        caches = m.new_caches()
+        steps = [m(IDS[:, :10], caches, 0)] + [m(IDS[:, t:t + 1], caches, t) for t in range(10, 23)]
+        assert torch.allclose(full, torch.cat(steps, 1), atol=1e-4)
+        x2 = IDS.clone(); x2[:, 15:] = (x2[:, 15:] + 1) % 64
+        assert torch.allclose(full[:, :15], m(x2)[:, :15], atol=1e-5)
+
+
+def test_suppressed_buffer_actually_feeds_back():
+    a = build([{"layers": "1", "attention": KVH}, {"layers": "1", "extra": ST(source="suppressed", gate="always")}])
+    b = same_weights(a, build([{"layers": "1", "attention": KVH}, {"layers": "1", "extra": ST(source="none", gate="always")}]))
+    assert a.layers[1].self_attn.expose and not b.layers[1].self_attn.expose
+    with torch.no_grad():
+        ya, yb = a(IDS), b(IDS)
+    assert torch.allclose(ya[:, :3], yb[:, :3], atol=1e-5)   # no suppressed keys yet in the first micro-epoch
+    assert not torch.allclose(ya[:, 4:], yb[:, 4:], atol=1e-4)
+
+
+@pytest.mark.skipif(not os.path.isdir(os.path.expanduser("~/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B")),
+                    reason="Qwen3-0.6B not cached")
+def test_real_qwen3_bitwise_with_zero_strength_feedback():
+    from transformers import AutoModelForCausalLM
+    ids = torch.tensor([[785, 3974, 13876, 38835, 34208, 916, 279, 15678, 5562, 13]])
+    m = PhaseQwen3ForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", rules=[
+        {"layers": "8-19", "attention": {"type": "phase", "mode": "kv", "period": 4, "gain": 1.0, "supp": 1.0}},
+        {"layers": "8-19", "extra": {"type": "suppressed_tracking", "lam": 0.0, "mix": 1.0}},
+        {"layers": "every4@8-19", "extra": {"type": "tracking", "lam": 0.0}}])
+    hf = AutoModelForCausalLM.from_pretrained("Qwen/Qwen3-0.6B", dtype=torch.float32, attn_implementation="sdpa").eval()
+    with torch.no_grad():
+        assert torch.equal(m(ids), hf(ids).logits)
+
+
+def test_restore_with_full_gate_recovers_stock_attention():
+    """Hard kv suppression + restore coupling with lam=1 on every step == stock model."""
+    base = build()
+    m = same_weights(base, build([{"layers": "all", "attention": KVH},
+                                  {"layers": "all", "extra": ST(coupling="restore", lam=1.0, gate="always", skip_sink=False)}]))
+    hard = same_weights(base, build([{"layers": "all", "attention": KVH}]))
+    with torch.no_grad():
+        y, yb, yh = m(IDS), base(IDS), hard(IDS)
+    assert torch.allclose(y, yb, atol=1e-4), (y - yb).abs().max()
+    assert not torch.allclose(yh, yb, atol=1e-3)

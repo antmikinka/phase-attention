@@ -73,3 +73,60 @@ With every new layer disabled (`stock`), and with PhaseAttention at its identity
 stock vs HF Qwen3ForCausalLM (64 tokens): {'max_abs_diff': 0.0, 'bitwise_equal': True, 'argmax_agree': 1.0}
 
 phase_kv_identity_all vs HF Qwen3ForCausalLM (64 tokens): {'max_abs_diff': 0.0, 'bitwise_equal': True, 'argmax_agree': 1.0}
+
+---
+
+# Feeding the suppressed stream back through tracking (`suppressed_tracking`), zero training
+
+The setup is the same as above: 32,768 WikiText-2 tokens, fp32, 3 threads on a shared CPU. Stock perplexity is **28.91**. Hard phase (`kv`, P=4, supp=0, layers 8–19) is **116.48**. Soft phase (gain=2, supp=1, layers 8–19) is **29.53**. Every feedback layer sits on layers 8–19 unless noted. "gate" is the fraction of steps coupled, averaged over layers in the last window.
+
+**Screening (2,048 tokens, first 4 windows, before the full run):**
+* The literal design, where the tracking state absorbs the buffer and the residual is pulled toward it (`pull`), only made hard phase worse: 137 to 165,000 depending on λ and α.
+* Adding back the raw suppressed output (`inject`) also failed: 116 at best, and 1,700+ at λ=1.
+* Both double-count. The suppressed content has to come back at its **stock attention share**, which is the `restore` coupling. That uses the buffer plus its partition mass, applied between attention and MLP.
+
+| variant | ppl | Δ vs stock | gate | prefill / decode tok/s | sample (sky / fraction / lighthouse) |
+|---|---|---|---|---|---|
+| hard phase alone (from above) | 116.48 | +303% | – | 356 / 12.3 | empty / garbled / "quiet quiet quiet" |
+| **hard + restore, always** (upper bound) | **28.91** | 0.0% | 1.00 | 188 / 9.2 | identical to stock |
+| **hard + restore, harmony τ=0.5** | **30.36** | +5.0% | 0.64 | 190 / 7.4 | fluent; the fraction answer starts slightly differently |
+| hard + restore, harmony τ=0.7 | 31.26 | +8.1% | 0.51 | 189 / 10.3 | fluent; a different story opening |
+| **hard + restore, harmony OR boundary τ=0.5** | **29.21** | **+1.0%** | 0.75 | 184 / 9.5 | ≈ stock |
+| hard + restore, phase boundary only | 58.16 | +101% | 0.25 | 191 / 9.8 | empty sky answer, wrong fraction |
+| CTRL: hard + restore, Bernoulli p=0.62 (duty matched to harmony τ=0.5) | 34.86 | +20.6% | 0.62 | 187 / 9.5 | OK but repetitive |
+| CTRL: hard + restore, Bernoulli p=0.25 (duty matched to boundary) | 56.56 | +95.6% | 0.26 | 194 / 9.2 | empty sky answer |
+| CTRL: hard + restore, **shuffled** buffer, harmony | 255.27 | +783% | 0.58 | 185 / 9.4 | garbage |
+| CTRL: hard + restore, **random** norm-matched buffer, harmony | 290.79 | +906% | 0.63 | 181 / 9.7 | garbage |
+| hard + pull (tracking absorbs buffer), λ=0.1, α=0 | 129.69 | +349% | 1.00 | 214 / 8.0 | broken |
+| CTRL: hard + pull without buffer, λ=0.1, α=0 | 116.48 | +303% | 1.00 | 287 / 10.2 | same as hard. *This is degenerate: with α=0 the inclusive EMA equals h, so the layer is the identity.* |
+| **soft + restore, harmony τ=0.5** | **28.93** | **+0.06%** | 0.76 | 181 / 9.2 | ≈ stock |
+| soft + pull with buffer (mix 0.25), every 4th layer of 8–19, λ=0.05, α=0.9, harmony | 29.70 | +2.7% | 0.51 | 189 / 7.9 | fluent |
+| CTRL: soft + pull without buffer, same settings | 29.79 | +3.0% | 0.91 | 256 / 8.9 | fluent |
+
+**Probe at layer 14 (hard + restore harmony τ=0.5; same probe as above):**
+* Token at the last suppressed-phase position: suppressed buffer **25.9%**, access stream 24.0%, majority 9.7%.
+* Token at the last access-phase position: suppressed buffer 16.9%, access stream **39.9%**.
+* So the double dissociation survives the feedback. It is a little weaker than hard phase alone (28.5 / 21.2) because the restored content now also reaches the access stream on coupled steps.
+
+## Verdict
+
+* **(a) Feedback rescues hard phase suppression, but only in `restore` form.** Hard phase goes from 116.5 to **30.4** coupling on 64% of steps by harmony, and to **29.2 (+1%)** with harmony-or-boundary at 75%.
+  * The **harmony gate is better than chance.** At the same duty cycle, random Bernoulli gating gives 34.9, and harmony gives 30.4.
+  * The **phase-boundary gate on its own is no better than random** (58.2 against 56.6 at about 25%).
+  * The **content matters.** Shuffled or random buffers fed through the same coupling give 255–291, which is far worse than no feedback at all.
+  * The `pull` and `inject` couplings, where the tracking state absorbs the buffer and the residual is pulled toward it, do **not** rescue anything (130 and above).
+* **Caveat.** `restore` uses the suppressed keys' stock attention mass, and λ=1 on every step is exactly stock attention (a tested identity). So the rescue measures *how few steps need the hidden stream's content*, about 64–75% of steps. It is not free context. In this implementation every step still computes both streams, so there is **no speed gain yet**. Prefill drops from about 350 to about 185 tok/s, because the restore path adds an explicit score matrix and two extra attention passes per layer. TPS is noisy on the shared CPU.
+* **(b) Soft phase stays within 3%.** Soft + restore harmony costs **+0.06%**. Soft + pull with the buffer costs +2.7%, against +3.0% for the same tracking without the buffer. The buffer helps only marginally there.
+
+## Trainable set for a frozen-base, new-layers-only follow-up
+
+The base Qwen3 weights stay frozen. These would become `nn.Parameter`s:
+
+| Layer | Trainable parameters |
+|---|---|
+| PhaseAttention | `gain` and `supp` per layer (and per head); phase `offset`; a soft period, e.g. a learned sinusoidal phase; `out_gain` |
+| suppressed_tracking | `lam`, `mix`, `alpha` (sigmoid-parameterized), `tau`, `sharp` per layer; optionally a small low-rank adapter on the side buffer (D→r→D) instead of the fixed o_proj restore |
+| tracking | `lam`, `alpha`, `tau`, `sharp` |
+| ChunkRoPE | a learnable interpolation between t and ⌊t/C⌋·C |
+
+That is a few hundred scalars per model, or about 0.5–2M parameters with low-rank side adapters. The objective would be distillation (KL to stock logits) plus LM loss, with a sparsity or compute penalty on the gate rate.

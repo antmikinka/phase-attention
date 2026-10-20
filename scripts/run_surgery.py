@@ -47,7 +47,27 @@ VARIANTS = {
     "combo_kvsoft_track": [{"layers": MID, "attention": KV(gain=2.0, supp=1.0)},
                            {"layers": "every4@8-19", "extra": TR(gate="harmony", tau=0.5)}],
 }
-PROBE = {"phase_kv_soft_mid": 14, "phase_kv_hard_mid": 14, "phase_head_hard_mid": 14, "phase_kv_hard_mid_P16": 14}
+RS = lambda **k: {"type": "suppressed_tracking", "period": 4, "coupling": "restore", "alpha": 0.7, "lam": 1.0, **k}
+PL = lambda **k: {"type": "suppressed_tracking", "period": 4, "coupling": "pull", **k}
+H_ = KV(gain=1.0, supp=0.0); S_ = KV(gain=2.0, supp=1.0)
+FEEDBACK = {
+    "hard+restore_always": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="always")}],
+    "hard+restore_harmony_t0.5": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="harmony", tau=0.5)}],
+    "hard+restore_harmony_t0.7": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="harmony", tau=0.7)}],
+    "hard+restore_boundary": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="boundary")}],
+    "hard+restore_either_t0.5": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="either", tau=0.5)}],
+    "CTRL_hard+restore_bernoulli_p0.62": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="bernoulli", p=0.62)}],
+    "CTRL_hard+restore_bernoulli_p0.25": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="bernoulli", p=0.25)}],
+    "CTRL_hard+restore_shuffled_harmony_t0.5": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="harmony", tau=0.5, source="shuffled")}],
+    "CTRL_hard+restore_random_harmony_t0.5": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": RS(gate="harmony", tau=0.5, source="random")}],
+    "hard+pull_suppressed_always": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": PL(lam=0.1, alpha=0.0, mix=1.0, gate="always")}],
+    "CTRL_hard+pull_nobuffer_always": [{"layers": MID, "attention": H_}, {"layers": MID, "extra": PL(lam=0.1, alpha=0.0, source="none", gate="always")}],
+    "soft+restore_harmony_t0.5": [{"layers": MID, "attention": S_}, {"layers": MID, "extra": RS(gate="harmony", tau=0.5)}],
+    "soft+pull_suppressed_harmony": [{"layers": MID, "attention": S_}, {"layers": "every4@8-19", "extra": PL(lam=0.05, alpha=0.9, mix=0.25, gate="harmony", tau=0.5)}],
+    "CTRL_soft+pull_nobuffer_harmony": [{"layers": MID, "attention": S_}, {"layers": "every4@8-19", "extra": PL(lam=0.05, alpha=0.9, source="none", gate="harmony", tau=0.5)}],
+}
+VARIANTS.update(FEEDBACK)
+PROBE = {"hard+restore_harmony_t0.5": 14, "phase_kv_soft_mid": 14, "phase_kv_hard_mid": 14, "phase_head_hard_mid": 14, "phase_kv_hard_mid_P16": 14}
 REV = {"stock": 4, "chunk2_all": 2, "chunk4_all": 4, "chunk8_all": 8, "chunk4_upper": 4}
 
 from transformers import AutoTokenizer
@@ -190,7 +210,13 @@ for name in names:
         r["vs_hf"] = {"max_abs_diff": float((a - b).abs().max()), "bitwise_equal": bool(torch.equal(a, b)),
                       "argmax_agree": float((a.argmax(-1) == b.argmax(-1)).float().mean())}
         del hf
+    for l in m.layers:
+        for e in l.extras:
+            e.record = True
     r["ppl"], r["window_nll"], r["prefill_tps"] = ppl(m)
+    gms = [e.buffer["gate_mean"] for l in m.layers for e in l.extras if "gate_mean" in getattr(e, "buffer", {})]
+    if gms:
+        r["gate_mean_last_window"] = sum(gms) / len(gms)
     print(name, "ppl", round(r["ppl"], 3), "prefill tps", round(r["prefill_tps"], 1), flush=True)
     if name in REV and args.windows >= args.rev_windows:
         r["reversal"] = reversal(m, REV[name]); print("  reversal", r["reversal"], flush=True)

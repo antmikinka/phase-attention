@@ -1,0 +1,31 @@
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+hard+restore_always ppl 28.912 prefill tps 187.6
+  decode tps 9.21 | The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, scattering shorter wavelengths o
+hard+restore_harmony_t0.5 ppl 30.364 prefill tps 189.8
+  probe {"layer": 14, "n_rows": 4056, "token_at_last_suppressed_pos": {"n": 1956, "majority_baseline": 0.09706258028745651, "from_suppressed_buffer": 0.25925925374031067, "from_access_stream": 0.24010217189788818}, "token_at_last_access_pos": {"n": 1933, "majority_baseline": 0.09689922630786896, "from_suppressed_buffer": 0.16925065219402313, "from_access_stream": 0.39922481775283813}}
+  decode tps 7.35 | The sky is blue because of the way sunlight interacts with the Earth's atmosphere, scattering the light in a way that ma
+hard+restore_harmony_t0.7 ppl 31.259 prefill tps 188.8
+  decode tps 10.28 | The sky is blue because of the way sunlight interacts with the Earth's atmosphere, scattering the light in a way that ma
+hard+restore_boundary ppl 58.162 prefill tps 190.6
+  decode tps 9.82 | 
+hard+restore_either_t0.5 ppl 29.214 prefill tps 183.8
+  decode tps 9.54 | The sky appears blue because of the way light interacts with the Earth's atmosphere, where shorter wavelengths of light 
+CTRL_hard+restore_bernoulli_p0.62 ppl 34.859 prefill tps 186.7
+  decode tps 9.51 | The sky is blue because of the way the sun emits light, which is what we see. The blue color comes from the way light in
+CTRL_hard+restore_bernoulli_p0.25 ppl 56.556 prefill tps 194.3
+  decode tps 9.19 | 
+CTRL_hard+restore_shuffled_harmony_t0.5 ppl 255.27 prefill tps 184.8
+  decode tps 9.43 | **(1) 1 0 0 3**  ****   **" (1) 0  0 3 3 3 3**   **[The text
+CTRL_hard+restore_random_harmony_t0.5 ppl 290.791 prefill tps 180.7
+  decode tps 9.71 | !?  Okay, the user has a, and the user is asking the in or asking why the sky is the?).  the sky is blue. ....../.  Wait
+hard+pull_suppressed_always ppl 129.691 prefill tps 214.2
+  decode tps 8.02 | 
+CTRL_hard+pull_nobuffer_always ppl 116.479 prefill tps 286.8
+  decode tps 10.19 | 
+soft+restore_harmony_t0.5 ppl 28.929 prefill tps 181.3
+  decode tps 9.18 | The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, scattering shorter wavelengths o
+soft+pull_suppressed_harmony ppl 29.703 prefill tps 188.9
+  decode tps 7.89 | The sky appears blue because of the scattering of sunlight by the atmosphere, which causes shorter wavelengths (blue lig
+CTRL_soft+pull_nobuffer_harmony ppl 29.792 prefill tps 256.2
+  decode tps 8.86 | The sky appears blue because of the scattering of sunlight by the atmosphere, which causes shorter wavelengths (blue lig
+DONE

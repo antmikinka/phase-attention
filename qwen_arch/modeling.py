@@ -112,13 +112,22 @@ class DecoderLayer(nn.Module):
         for e in spec.extra:
             e = dict(e)
             self.extras.append(EXTRA_LAYER_TYPES[e.pop("type")](c, idx, **e))
+        # an extra layer that consumes the attention's suppressed side buffer turns exposure on
+        self.self_attn.expose = any(getattr(e, "needs_side", False) for e in self.extras)
 
     def forward(self, x, pos, cache):
         cos, sin = self.positions(pos, x.device)
         h = x + self.self_attn(self.input_layernorm(x), cos, sin, pos, cache)
+        side = getattr(self.self_attn, "side", None) if self.self_attn.expose else None
+        for e in self.extras:          # extras that couple between attention and MLP
+            if getattr(e, "stage", "post_mlp") == "post_attn":
+                e._restore = getattr(self.self_attn, "side_restore", None)
+                h = e(h, pos, cache, side=side)
         h = h + self.mlp(self.post_attention_layernorm(h))
         for e in self.extras:
-            h = e(h, pos, cache)
+            if getattr(e, "stage", "post_mlp") == "post_attn":
+                continue
+            h = e(h, pos, cache, side=side) if getattr(e, "needs_side", False) else e(h, pos, cache)
         return h
 
 

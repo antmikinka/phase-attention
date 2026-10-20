@@ -80,3 +80,36 @@ This layer is inserted after a decoder layer, after Tsao's "drone" analogy: a co
   | `phase` | couple on alternate micro-epochs only |
 
 * λ=0 is the identity.
+
+### 4. Suppressed-stream feedback through tracking (`extra.type = "suppressed_tracking"`)
+
+This feeds the hidden stream back through the tracking layer. PhaseAttention in `kv` mode **exposes** its suppressed-stream side buffer to any coupling layer in the same decoder layer. Exposure is switched on automatically, and only when such a layer has λ≠0.
+
+```mermaid
+flowchart LR
+  A["PhaseAttention (kv)<br/>access stream → residual"] -->|"side buffer s_t<br/>(+ attention mass w_sup)"| T["slow tracking state m_t = EMA(s)"]
+  T -->|"harmony gate c_t = σ(k·(cos(s_t, m_t) − τ))<br/>and/or phase boundary"| R(("+ λ·c_t·s_t"))
+  A --> R --> MLP
+```
+
+`coupling` sets what is fed back and where:
+
+| coupling | Signal | Where | Notes |
+|---|---|---|---|
+| `restore` | `o_proj(y_stock − y_actual)`: the suppressed stream's content at its **stock attention share**, from the buffer and its partition mass | between attention and MLP | λ=1 with c=1 recovers stock attention exactly (tested). The slow state m_t = EMA(side) only drives the harmony gate. |
+| `inject` | EMA of the raw suppressed output, added back | after the MLP | |
+| `pull` | the tracking state absorbs the buffer, `u = h + mix·(‖h‖/‖s‖)·s`, and the residual is pulled toward it, `h += λ·c·(m − h)` | after the MLP | |
+
+**Gates:**
+
+| Gate | Rule |
+|---|---|
+| `harmony` | the current suppressed content agrees with the tracked state; for `pull`, also the current token |
+| `boundary` | first token of each phase micro-epoch |
+| `either` / `both` | max / product of `harmony` and `boundary` |
+| `always` | 1 |
+| `bernoulli(p)` | random gate with a matched duty cycle (control) |
+
+**Controls:** `source="random"` (norm-matched noise), `source="shuffled"` (a causal buffer from a random earlier position), `source="none"` (tracking only).
+
+**Exactness:** λ=0 is bitwise identical to stock HF, which is tested on the real model.
