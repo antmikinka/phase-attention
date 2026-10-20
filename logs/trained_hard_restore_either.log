@@ -1,0 +1,48 @@
+[hard_restore_either] trainable params: 197,052 in 108 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+/workspace/phase-attention/scripts/train_new_layers.py:90: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  r["values"] = {n: (p.detach().flatten()[:16].tolist() if p.numel() > 1 else float(p)) for n, p in trainable if "adapter" not in n}
+[hard_restore_either] untrained: ppl 29.214 gate 0.758753512132292 open 0.7662187065773954 prefill 375 decode 15.1 | "The sky appears blue because of the way light interacts with the Earth's atmosphere, where"
+{'step': 5, 'kl': 0.02392, 'ce': 4.08985, 'gate': 0.81768, 's': 19.0}
+{'step': 10, 'kl': 0.01696, 'ce': 3.24936, 'gate': 0.86015, 's': 40.3}
+{'step': 15, 'kl': 0.01311, 'ce': 3.67996, 'gate': 0.90531, 's': 56.8}
+{'step': 20, 'kl': 0.00989, 'ce': 3.72221, 'gate': 0.93503, 's': 74.4}
+{'step': 25, 'kl': 0.01083, 'ce': 3.99083, 'gate': 0.93253, 's': 91.5}
+{'step': 30, 'kl': 0.00773, 'ce': 3.09895, 'gate': 0.95308, 's': 113.4}
+{'step': 35, 'kl': 0.00726, 'ce': 3.52401, 'gate': 0.95725, 's': 130.2}
+{'step': 40, 'kl': 0.00906, 'ce': 3.75094, 'gate': 0.9705, 's': 147.7}
+{'step': 45, 'kl': 0.0132, 'ce': 3.91088, 'gate': 0.97542, 's': 169.3}
+{'step': 50, 'kl': 0.01076, 'ce': 3.38507, 'gate': 0.9767, 's': 185.5}
+{'step': 55, 'kl': 0.01259, 'ce': 3.44479, 'gate': 0.97911, 's': 206.2}
+{'step': 60, 'kl': 0.01253, 'ce': 3.61736, 'gate': 0.98254, 's': 223.7}
+{'step': 65, 'kl': 0.01235, 'ce': 3.82766, 'gate': 0.98383, 's': 240.4}
+{'step': 70, 'kl': 0.01266, 'ce': 3.82032, 'gate': 0.98641, 's': 259.6}
+{'step': 75, 'kl': 0.01172, 'ce': 3.76166, 'gate': 0.97821, 's': 275.8}
+{'step': 80, 'kl': 0.00797, 'ce': 3.16192, 'gate': 0.98952, 's': 299.3}
+{'step': 85, 'kl': 0.01269, 'ce': 4.04554, 'gate': 0.99057, 's': 316.0}
+{'step': 90, 'kl': 0.01242, 'ce': 3.32265, 'gate': 0.9894, 's': 335.2}
+{'step': 95, 'kl': 0.01195, 'ce': 3.16937, 'gate': 0.99035, 's': 355.0}
+{'step': 100, 'kl': 0.00928, 'ce': 3.51001, 'gate': 0.9878, 's': 372.4}
+{'step': 105, 'kl': 0.0171, 'ce': 3.22364, 'gate': 0.99192, 's': 389.8}
+{'step': 110, 'kl': 0.01046, 'ce': 3.30195, 'gate': 0.99016, 's': 410.2}
+{'step': 115, 'kl': 0.00978, 'ce': 2.98397, 'gate': 0.99043, 's': 433.8}
+{'step': 120, 'kl': 0.01796, 'ce': 3.78881, 'gate': 0.99341, 's': 450.4}
+{'step': 125, 'kl': 0.01176, 'ce': 3.7772, 'gate': 0.99469, 's': 467.2}
+{'step': 130, 'kl': 0.01634, 'ce': 3.37328, 'gate': 0.98855, 's': 485.2}
+{'step': 135, 'kl': 0.01038, 'ce': 4.13216, 'gate': 0.99049, 's': 500.5}
+{'step': 140, 'kl': 0.01266, 'ce': 3.75591, 'gate': 0.99464, 's': 518.8}
+{'step': 145, 'kl': 0.01384, 'ce': 3.32446, 'gate': 0.9924, 's': 536.5}
+{'step': 150, 'kl': 0.01142, 'ce': 2.77414, 'gate': 0.99499, 's': 554.3}
+{'step': 155, 'kl': 0.0138, 'ce': 3.05371, 'gate': 0.99275, 's': 577.7}
+{'step': 160, 'kl': 0.01139, 'ce': 3.20014, 'gate': 0.99556, 's': 596.9}
+{'step': 165, 'kl': 0.01377, 'ce': 3.49522, 'gate': 0.99433, 's': 614.1}
+{'step': 170, 'kl': 0.01511, 'ce': 3.25871, 'gate': 0.99411, 's': 631.1}
+{'step': 175, 'kl': 0.01686, 'ce': 3.78935, 'gate': 0.99632, 's': 649.3}
+{'step': 180, 'kl': 0.01073, 'ce': 3.1945, 'gate': 0.99722, 's': 668.0}
+{'step': 185, 'kl': 0.01398, 'ce': 3.98265, 'gate': 0.99527, 's': 686.1}
+{'step': 190, 'kl': 0.01385, 'ce': 3.57999, 'gate': 0.99298, 's': 711.8}
+{'step': 195, 'kl': 0.01415, 'ce': 3.10349, 'gate': 0.99713, 's': 732.6}
+{'step': 200, 'kl': 0.01399, 'ce': 3.17657, 'gate': 0.99574, 's': 751.3}
+[hard_restore_either] trained: ppl 25.687 gate 0.9974940605461597 open 0.9993349461971471 prefill 387 decode 13.9 | "The sky appears blue because of the scattering of sunlight by the Earth's atmosphere, whic"
+DONE hard_restore_either

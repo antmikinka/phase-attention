@@ -1,0 +1,48 @@
+[hard_restore_either_gw0.05] trainable params: 197,052 in 108 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+/workspace/phase-attention/scripts/train_new_layers.py:93: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  r["values"] = {n: (p.detach().flatten()[:16].tolist() if p.numel() > 1 else float(p)) for n, p in trainable if "adapter" not in n}
+[hard_restore_either_gw0.05] untrained: ppl 29.214 gate 0.7587535124427328 open 0.7662187065773954 prefill 368 decode 17.3 | "The sky appears blue because of the way light interacts with the Earth's atmosphere, where"
+{'step': 5, 'kl': 0.02426, 'ce': 4.09082, 'gate': 0.80928, 's': 13.4}
+{'step': 10, 'kl': 0.01817, 'ce': 3.24864, 'gate': 0.83992, 's': 28.3}
+{'step': 15, 'kl': 0.01314, 'ce': 3.68337, 'gate': 0.88263, 's': 41.8}
+{'step': 20, 'kl': 0.01065, 'ce': 3.72854, 'gate': 0.90947, 's': 58.9}
+{'step': 25, 'kl': 0.01283, 'ce': 3.98715, 'gate': 0.89786, 's': 73.8}
+{'step': 30, 'kl': 0.00874, 'ce': 3.09824, 'gate': 0.91157, 's': 91.3}
+{'step': 35, 'kl': 0.00922, 'ce': 3.52556, 'gate': 0.91126, 's': 108.1}
+{'step': 40, 'kl': 0.0105, 'ce': 3.76321, 'gate': 0.92036, 's': 124.7}
+{'step': 45, 'kl': 0.0138, 'ce': 3.91117, 'gate': 0.91861, 's': 140.6}
+{'step': 50, 'kl': 0.01266, 'ce': 3.38094, 'gate': 0.91518, 's': 156.4}
+{'step': 55, 'kl': 0.01378, 'ce': 3.44433, 'gate': 0.9118, 's': 171.3}
+{'step': 60, 'kl': 0.01488, 'ce': 3.61533, 'gate': 0.90189, 's': 186.0}
+{'step': 65, 'kl': 0.01691, 'ce': 3.81888, 'gate': 0.89287, 's': 200.9}
+{'step': 70, 'kl': 0.01665, 'ce': 3.81272, 'gate': 0.89541, 's': 215.3}
+{'step': 75, 'kl': 0.01572, 'ce': 3.75795, 'gate': 0.87798, 's': 236.5}
+{'step': 80, 'kl': 0.00981, 'ce': 3.16582, 'gate': 0.88897, 's': 254.0}
+{'step': 85, 'kl': 0.01578, 'ce': 4.05903, 'gate': 0.88302, 's': 269.5}
+{'step': 90, 'kl': 0.01615, 'ce': 3.32357, 'gate': 0.87505, 's': 284.8}
+{'step': 95, 'kl': 0.01541, 'ce': 3.17314, 'gate': 0.87507, 's': 299.9}
+{'step': 100, 'kl': 0.01133, 'ce': 3.51612, 'gate': 0.86732, 's': 317.3}
+{'step': 105, 'kl': 0.02081, 'ce': 3.22165, 'gate': 0.8718, 's': 332.8}
+{'step': 110, 'kl': 0.01196, 'ce': 3.30289, 'gate': 0.862, 's': 346.8}
+{'step': 115, 'kl': 0.01271, 'ce': 2.99426, 'gate': 0.86391, 's': 367.7}
+{'step': 120, 'kl': 0.02105, 'ce': 3.79059, 'gate': 0.86839, 's': 382.7}
+{'step': 125, 'kl': 0.01404, 'ce': 3.77831, 'gate': 0.86375, 's': 399.0}
+{'step': 130, 'kl': 0.01901, 'ce': 3.38667, 'gate': 0.83873, 's': 414.5}
+{'step': 135, 'kl': 0.01407, 'ce': 4.121, 'gate': 0.84913, 's': 430.3}
+{'step': 140, 'kl': 0.0162, 'ce': 3.74763, 'gate': 0.85485, 's': 445.9}
+{'step': 145, 'kl': 0.0165, 'ce': 3.34084, 'gate': 0.85221, 's': 461.7}
+{'step': 150, 'kl': 0.01668, 'ce': 2.76966, 'gate': 0.86044, 's': 476.7}
+{'step': 155, 'kl': 0.01833, 'ce': 3.05415, 'gate': 0.8461, 's': 498.5}
+{'step': 160, 'kl': 0.01384, 'ce': 3.20295, 'gate': 0.84988, 's': 517.2}
+{'step': 165, 'kl': 0.01649, 'ce': 3.49682, 'gate': 0.84733, 's': 535.5}
+{'step': 170, 'kl': 0.01691, 'ce': 3.25583, 'gate': 0.84181, 's': 552.8}
+{'step': 175, 'kl': 0.0198, 'ce': 3.79526, 'gate': 0.85701, 's': 568.1}
+{'step': 180, 'kl': 0.01456, 'ce': 3.18866, 'gate': 0.85966, 's': 582.9}
+{'step': 185, 'kl': 0.01707, 'ce': 3.98719, 'gate': 0.84799, 's': 599.1}
+{'step': 190, 'kl': 0.01705, 'ce': 3.60276, 'gate': 0.84473, 's': 614.3}
+{'step': 195, 'kl': 0.01926, 'ce': 3.10714, 'gate': 0.86194, 's': 636.7}
+{'step': 200, 'kl': 0.02059, 'ce': 3.18052, 'gate': 0.86372, 's': 652.6}
+[hard_restore_either_gw0.05] trained: ppl 25.664 gate 0.8734731827086458 open 0.9766873551998287 prefill 459 decode 15.3 | 'The sky appears blue because it contains a mixture of nitrogen and oxygen molecules, which'
+DONE hard_restore_either_gw0.05

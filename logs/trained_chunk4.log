@@ -1,0 +1,48 @@
+[chunk4] trainable params: 28 in 28 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+/workspace/phase-attention/scripts/train_new_layers.py:93: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  r["values"] = {n: (p.detach().flatten()[:16].tolist() if p.numel() > 1 else float(p)) for n, p in trainable if "adapter" not in n}
+[chunk4] untrained: ppl 72.493 gate None open None prefill 609 decode 19.5 | "The sky is blue because of the Earth's atmosphere."
+{'step': 5, 'kl': 1.265, 'ce': 5.18466, 'gate': 0.0, 's': 13.1}
+{'step': 10, 'kl': 1.04975, 'ce': 4.16748, 'gate': 0.0, 's': 26.5}
+{'step': 15, 'kl': 1.15265, 'ce': 4.72935, 'gate': 0.0, 's': 39.9}
+{'step': 20, 'kl': 0.92792, 'ce': 4.53378, 'gate': 0.0, 's': 53.7}
+{'step': 25, 'kl': 0.97021, 'ce': 4.8066, 'gate': 0.0, 's': 67.2}
+{'step': 30, 'kl': 1.14748, 'ce': 4.20891, 'gate': 0.0, 's': 87.9}
+{'step': 35, 'kl': 0.86069, 'ce': 4.24669, 'gate': 0.0, 's': 101.6}
+{'step': 40, 'kl': 1.06353, 'ce': 4.66102, 'gate': 0.0, 's': 115.0}
+{'step': 45, 'kl': 1.04276, 'ce': 4.91565, 'gate': 0.0, 's': 129.5}
+{'step': 50, 'kl': 0.92636, 'ce': 4.22204, 'gate': 0.0, 's': 144.2}
+{'step': 55, 'kl': 1.12118, 'ce': 4.51058, 'gate': 0.0, 's': 158.1}
+{'step': 60, 'kl': 1.29558, 'ce': 4.77389, 'gate': 0.0, 's': 171.8}
+{'step': 65, 'kl': 0.96586, 'ce': 4.71481, 'gate': 0.0, 's': 186.7}
+{'step': 70, 'kl': 1.1548, 'ce': 4.89909, 'gate': 0.0, 's': 211.3}
+{'step': 75, 'kl': 1.01588, 'ce': 4.75798, 'gate': 0.0, 's': 274.1}
+{'step': 80, 'kl': 1.1611, 'ce': 4.16, 'gate': 0.0, 's': 292.2}
+{'step': 85, 'kl': 0.99023, 'ce': 5.02093, 'gate': 0.0, 's': 308.2}
+{'step': 90, 'kl': 1.16498, 'ce': 4.47959, 'gate': 0.0, 's': 323.2}
+{'step': 95, 'kl': 0.81243, 'ce': 3.97987, 'gate': 0.0, 's': 336.8}
+{'step': 100, 'kl': 0.90956, 'ce': 4.38715, 'gate': 0.0, 's': 352.1}
+{'step': 105, 'kl': 0.82657, 'ce': 4.0886, 'gate': 0.0, 's': 376.1}
+{'step': 110, 'kl': 1.05398, 'ce': 4.32145, 'gate': 0.0, 's': 395.4}
+{'step': 115, 'kl': 1.11988, 'ce': 4.13896, 'gate': 0.0, 's': 409.7}
+{'step': 120, 'kl': 0.95696, 'ce': 4.82845, 'gate': 0.0, 's': 424.3}
+{'step': 125, 'kl': 1.0786, 'ce': 4.7315, 'gate': 0.0, 's': 438.7}
+{'step': 130, 'kl': 0.92771, 'ce': 4.35879, 'gate': 0.0, 's': 452.5}
+{'step': 135, 'kl': 0.97753, 'ce': 5.07094, 'gate': 0.0, 's': 468.0}
+{'step': 140, 'kl': 0.9187, 'ce': 4.59812, 'gate': 0.0, 's': 482.0}
+{'step': 145, 'kl': 0.93498, 'ce': 4.33849, 'gate': 0.0, 's': 495.7}
+{'step': 150, 'kl': 0.85928, 'ce': 3.58288, 'gate': 0.0, 's': 513.6}
+{'step': 155, 'kl': 0.87782, 'ce': 4.02856, 'gate': 0.0, 's': 528.7}
+{'step': 160, 'kl': 0.89142, 'ce': 4.03583, 'gate': 0.0, 's': 542.2}
+{'step': 165, 'kl': 0.61434, 'ce': 4.01725, 'gate': 0.0, 's': 555.6}
+{'step': 170, 'kl': 0.84567, 'ce': 4.1389, 'gate': 0.0, 's': 568.5}
+{'step': 175, 'kl': 0.63048, 'ce': 4.3861, 'gate': 0.0, 's': 581.3}
+{'step': 180, 'kl': 0.6264, 'ce': 3.80989, 'gate': 0.0, 's': 597.0}
+{'step': 185, 'kl': 0.70149, 'ce': 4.59374, 'gate': 0.0, 's': 611.0}
+{'step': 190, 'kl': 0.66444, 'ce': 4.28072, 'gate': 0.0, 's': 627.0}
+{'step': 195, 'kl': 0.57437, 'ce': 3.70433, 'gate': 0.0, 's': 643.0}
+{'step': 200, 'kl': 0.59782, 'ce': 3.75232, 'gate': 0.0, 's': 659.7}
+[chunk4] trained: ppl 45.194 gate None open None prefill 681 decode 20.1 | 'The sky is blue because it contains a mixture of nitrogen and oxygen, which are gases that'
+DONE chunk4

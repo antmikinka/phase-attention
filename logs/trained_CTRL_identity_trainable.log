@@ -1,0 +1,48 @@
+[CTRL_identity_trainable] trainable params: 197,244 in 120 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+/workspace/phase-attention/scripts/train_new_layers.py:93: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  r["values"] = {n: (p.detach().flatten()[:16].tolist() if p.numel() > 1 else float(p)) for n, p in trainable if "adapter" not in n}
+[CTRL_identity_trainable] untrained: ppl 28.912 gate 0.815341369404147 open 0.8787635538416604 prefill 388 decode 16.8 | "The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, sc"
+{'step': 5, 'kl': 0.00398, 'ce': 4.07105, 'gate': 0.94399, 's': 14.8}
+{'step': 10, 'kl': 0.00449, 'ce': 3.25936, 'gate': 0.94644, 's': 29.3}
+{'step': 15, 'kl': 0.00535, 'ce': 3.71008, 'gate': 0.94283, 's': 43.4}
+{'step': 20, 'kl': 0.00599, 'ce': 3.7375, 'gate': 0.94893, 's': 59.3}
+{'step': 25, 'kl': 0.00603, 'ce': 4.01693, 'gate': 0.93525, 's': 78.2}
+{'step': 30, 'kl': 0.00655, 'ce': 3.12364, 'gate': 0.95032, 's': 99.3}
+{'step': 35, 'kl': 0.00451, 'ce': 3.53379, 'gate': 0.96307, 's': 115.8}
+{'step': 40, 'kl': 0.00568, 'ce': 3.77777, 'gate': 0.96574, 's': 130.8}
+{'step': 45, 'kl': 0.00747, 'ce': 3.95709, 'gate': 0.96611, 's': 144.9}
+{'step': 50, 'kl': 0.00828, 'ce': 3.3941, 'gate': 0.96425, 's': 159.9}
+{'step': 55, 'kl': 0.01059, 'ce': 3.46421, 'gate': 0.96204, 's': 176.7}
+{'step': 60, 'kl': 0.01123, 'ce': 3.63607, 'gate': 0.96636, 's': 192.2}
+{'step': 65, 'kl': 0.01198, 'ce': 3.83291, 'gate': 0.97373, 's': 207.4}
+{'step': 70, 'kl': 0.00944, 'ce': 3.83448, 'gate': 0.97829, 's': 230.2}
+{'step': 75, 'kl': 0.01396, 'ce': 3.75036, 'gate': 0.97463, 's': 246.0}
+{'step': 80, 'kl': 0.00713, 'ce': 3.1659, 'gate': 0.98281, 's': 262.0}
+{'step': 85, 'kl': 0.0107, 'ce': 4.05133, 'gate': 0.98478, 's': 278.4}
+{'step': 90, 'kl': 0.01268, 'ce': 3.31425, 'gate': 0.98635, 's': 295.0}
+{'step': 95, 'kl': 0.01284, 'ce': 3.17613, 'gate': 0.98766, 's': 310.2}
+{'step': 100, 'kl': 0.00747, 'ce': 3.50916, 'gate': 0.9865, 's': 325.8}
+{'step': 105, 'kl': 0.01839, 'ce': 3.21962, 'gate': 0.99023, 's': 342.6}
+{'step': 110, 'kl': 0.00916, 'ce': 3.28205, 'gate': 0.99139, 's': 363.9}
+{'step': 115, 'kl': 0.01224, 'ce': 2.96586, 'gate': 0.99382, 's': 379.3}
+{'step': 120, 'kl': 0.01766, 'ce': 3.78775, 'gate': 0.99396, 's': 395.1}
+{'step': 125, 'kl': 0.01387, 'ce': 3.75478, 'gate': 0.99424, 's': 410.6}
+{'step': 130, 'kl': 0.01637, 'ce': 3.38554, 'gate': 0.99313, 's': 425.9}
+{'step': 135, 'kl': 0.01087, 'ce': 4.12342, 'gate': 0.994, 's': 440.9}
+{'step': 140, 'kl': 0.01461, 'ce': 3.74223, 'gate': 0.99525, 's': 455.8}
+{'step': 145, 'kl': 0.01249, 'ce': 3.30033, 'gate': 0.99582, 's': 471.9}
+{'step': 150, 'kl': 0.00936, 'ce': 2.77843, 'gate': 0.99661, 's': 492.4}
+{'step': 155, 'kl': 0.01242, 'ce': 3.05698, 'gate': 0.9961, 's': 508.2}
+{'step': 160, 'kl': 0.00874, 'ce': 3.21263, 'gate': 0.99745, 's': 525.2}
+{'step': 165, 'kl': 0.01301, 'ce': 3.47464, 'gate': 0.99733, 's': 540.6}
+{'step': 170, 'kl': 0.01616, 'ce': 3.22995, 'gate': 0.99788, 's': 555.9}
+{'step': 175, 'kl': 0.01411, 'ce': 3.79788, 'gate': 0.99837, 's': 570.3}
+{'step': 180, 'kl': 0.01114, 'ce': 3.19449, 'gate': 0.99805, 's': 586.8}
+{'step': 185, 'kl': 0.01408, 'ce': 3.94989, 'gate': 0.99671, 's': 600.8}
+{'step': 190, 'kl': 0.01324, 'ce': 3.54198, 'gate': 0.99728, 's': 619.8}
+{'step': 195, 'kl': 0.01429, 'ce': 3.0974, 'gate': 0.99685, 's': 637.0}
+{'step': 200, 'kl': 0.01449, 'ce': 3.16904, 'gate': 0.99657, 's': 651.0}
+[CTRL_identity_trainable] trained: ppl 25.146 gate 0.9971588109619915 open 0.9993782630966356 prefill 520 decode 18.0 | "The sky appears blue because of the scattering of sunlight by the Earth's atmosphere, whic"
+DONE CTRL_identity_trainable

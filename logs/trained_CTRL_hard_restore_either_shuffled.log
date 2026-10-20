@@ -1,0 +1,48 @@
+[CTRL_hard_restore_either_shuffled] trainable params: 197,052 in 108 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+/workspace/phase-attention/scripts/train_new_layers.py:93: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  r["values"] = {n: (p.detach().flatten()[:16].tolist() if p.numel() > 1 else float(p)) for n, p in trainable if "adapter" not in n}
+[CTRL_hard_restore_either_shuffled] untrained: ppl 274.046 gate 0.6770475213415921 open 0.6822687312184522 prefill 356 decode 9.4 | '**(1) 1   1 1**  \n****  \n**((1)  1  1) 1) 1) 1**  1'
+{'step': 5, 'kl': 1.76249, 'ce': 5.56933, 'gate': 0.63335, 's': 19.5}
+{'step': 10, 'kl': 0.86112, 'ce': 3.97175, 'gate': 0.59778, 's': 36.3}
+{'step': 15, 'kl': 0.73497, 'ce': 4.25129, 'gate': 0.54751, 's': 55.8}
+{'step': 20, 'kl': 0.53712, 'ce': 4.16393, 'gate': 0.50714, 's': 73.9}
+{'step': 25, 'kl': 0.61015, 'ce': 4.54909, 'gate': 0.47763, 's': 94.4}
+{'step': 30, 'kl': 0.47336, 'ce': 3.41157, 'gate': 0.47146, 's': 113.3}
+{'step': 35, 'kl': 0.47874, 'ce': 3.87483, 'gate': 0.4634, 's': 136.1}
+{'step': 40, 'kl': 0.43089, 'ce': 4.06751, 'gate': 0.46318, 's': 153.8}
+{'step': 45, 'kl': 0.49614, 'ce': 4.28443, 'gate': 0.46267, 's': 172.6}
+{'step': 50, 'kl': 0.51647, 'ce': 3.71149, 'gate': 0.46844, 's': 190.3}
+{'step': 55, 'kl': 0.46878, 'ce': 3.83759, 'gate': 0.47546, 's': 206.2}
+{'step': 60, 'kl': 0.4248, 'ce': 3.91247, 'gate': 0.48774, 's': 222.5}
+{'step': 65, 'kl': 0.43518, 'ce': 4.10477, 'gate': 0.49177, 's': 245.1}
+{'step': 70, 'kl': 0.40194, 'ce': 4.08546, 'gate': 0.50145, 's': 268.2}
+{'step': 75, 'kl': 0.40453, 'ce': 4.05225, 'gate': 0.50119, 's': 286.7}
+{'step': 80, 'kl': 0.39402, 'ce': 3.42298, 'gate': 0.50688, 's': 308.3}
+{'step': 85, 'kl': 0.39483, 'ce': 4.29654, 'gate': 0.50613, 's': 330.2}
+{'step': 90, 'kl': 0.36377, 'ce': 3.64079, 'gate': 0.50448, 's': 349.2}
+{'step': 95, 'kl': 0.41111, 'ce': 3.5553, 'gate': 0.50569, 's': 368.5}
+{'step': 100, 'kl': 0.32951, 'ce': 3.7298, 'gate': 0.50207, 's': 393.7}
+{'step': 105, 'kl': 0.34632, 'ce': 3.48444, 'gate': 0.50835, 's': 411.6}
+{'step': 110, 'kl': 0.34896, 'ce': 3.46587, 'gate': 0.50986, 's': 433.6}
+{'step': 115, 'kl': 0.386, 'ce': 3.27236, 'gate': 0.51748, 's': 452.3}
+{'step': 120, 'kl': 0.38208, 'ce': 4.1117, 'gate': 0.51928, 's': 468.9}
+{'step': 125, 'kl': 0.35975, 'ce': 3.94248, 'gate': 0.51247, 's': 485.6}
+{'step': 130, 'kl': 0.31564, 'ce': 3.55448, 'gate': 0.51238, 's': 502.8}
+{'step': 135, 'kl': 0.35826, 'ce': 4.43881, 'gate': 0.51452, 's': 522.4}
+{'step': 140, 'kl': 0.36333, 'ce': 4.06669, 'gate': 0.5181, 's': 542.1}
+{'step': 145, 'kl': 0.35885, 'ce': 3.6593, 'gate': 0.52083, 's': 557.5}
+{'step': 150, 'kl': 0.3441, 'ce': 3.11723, 'gate': 0.5287, 's': 576.5}
+{'step': 155, 'kl': 0.3695, 'ce': 3.29198, 'gate': 0.52937, 's': 592.2}
+{'step': 160, 'kl': 0.32804, 'ce': 3.39892, 'gate': 0.52886, 's': 612.9}
+{'step': 165, 'kl': 0.36833, 'ce': 3.67822, 'gate': 0.527, 's': 629.7}
+{'step': 170, 'kl': 0.31456, 'ce': 3.46013, 'gate': 0.5251, 's': 647.6}
+{'step': 175, 'kl': 0.34493, 'ce': 4.05844, 'gate': 0.52671, 's': 670.3}
+{'step': 180, 'kl': 0.29141, 'ce': 3.37243, 'gate': 0.52738, 's': 687.3}
+{'step': 185, 'kl': 0.3465, 'ce': 4.17537, 'gate': 0.52423, 's': 705.8}
+{'step': 190, 'kl': 0.3426, 'ce': 3.78356, 'gate': 0.52753, 's': 721.0}
+{'step': 195, 'kl': 0.31034, 'ce': 3.42717, 'gate': 0.53219, 's': 738.2}
+{'step': 200, 'kl': 0.31539, 'ce': 3.45135, 'gate': 0.5351, 's': 755.7}
+[CTRL_hard_restore_either_shuffled] trained: ppl 32.660 gate 0.5407133110566065 open 0.5836722302095344 prefill 327 decode 17.0 | 'The sky is blue because of the way the sun emits a blue light, which is why the sky appear'
+DONE CTRL_hard_restore_either_shuffled

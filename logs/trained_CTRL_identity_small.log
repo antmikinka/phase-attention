@@ -1,0 +1,48 @@
+[CTRL_identity_small] trainable params: 576 in 36 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+[CTRL_identity_small] untrained: ppl 28.912 gate None open None prefill 687 decode 21.0 | "The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, sc"
+/workspace/phase-attention/scripts/train_new_layers.py:137: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  tot["kl"] += float(kl) / args.accum; tot["ce"] += float(ce) / args.accum; tot["gate"] += float(gate) / args.accum
+{'step': 5, 'kl': 0.00465, 'ce': 4.07106, 'gate': 0.0, 's': 11.5}
+{'step': 10, 'kl': 0.00518, 'ce': 3.261, 'gate': 0.0, 's': 24.1}
+{'step': 15, 'kl': 0.0058, 'ce': 3.71024, 'gate': 0.0, 's': 35.7}
+{'step': 20, 'kl': 0.0058, 'ce': 3.74094, 'gate': 0.0, 's': 46.9}
+{'step': 25, 'kl': 0.00557, 'ce': 4.02542, 'gate': 0.0, 's': 63.6}
+{'step': 30, 'kl': 0.00485, 'ce': 3.14316, 'gate': 0.0, 's': 77.5}
+{'step': 35, 'kl': 0.00418, 'ce': 3.54324, 'gate': 0.0, 's': 89.6}
+{'step': 40, 'kl': 0.00426, 'ce': 3.80513, 'gate': 0.0, 's': 103.7}
+{'step': 45, 'kl': 0.00537, 'ce': 3.99454, 'gate': 0.0, 's': 115.5}
+{'step': 50, 'kl': 0.0067, 'ce': 3.42555, 'gate': 0.0, 's': 127.1}
+{'step': 55, 'kl': 0.00531, 'ce': 3.52371, 'gate': 0.0, 's': 138.8}
+{'step': 60, 'kl': 0.00547, 'ce': 3.71891, 'gate': 0.0, 's': 150.0}
+{'step': 65, 'kl': 0.00475, 'ce': 3.91017, 'gate': 0.0, 's': 162.2}
+{'step': 70, 'kl': 0.00649, 'ce': 3.88873, 'gate': 0.0, 's': 174.3}
+{'step': 75, 'kl': 0.00574, 'ce': 3.83753, 'gate': 0.0, 's': 186.2}
+{'step': 80, 'kl': 0.00412, 'ce': 3.21222, 'gate': 0.0, 's': 204.7}
+{'step': 85, 'kl': 0.00536, 'ce': 4.12893, 'gate': 0.0, 's': 217.8}
+{'step': 90, 'kl': 0.00475, 'ce': 3.38338, 'gate': 0.0, 's': 229.4}
+{'step': 95, 'kl': 0.00526, 'ce': 3.29308, 'gate': 0.0, 's': 240.9}
+{'step': 100, 'kl': 0.00411, 'ce': 3.56233, 'gate': 0.0, 's': 253.0}
+{'step': 105, 'kl': 0.0073, 'ce': 3.33834, 'gate': 0.0, 's': 265.0}
+{'step': 110, 'kl': 0.00483, 'ce': 3.33246, 'gate': 0.0, 's': 277.5}
+{'step': 115, 'kl': 0.00435, 'ce': 3.04736, 'gate': 0.0, 's': 290.3}
+{'step': 120, 'kl': 0.00576, 'ce': 3.92106, 'gate': 0.0, 's': 302.7}
+{'step': 125, 'kl': 0.00497, 'ce': 3.86052, 'gate': 0.0, 's': 315.0}
+{'step': 130, 'kl': 0.00752, 'ce': 3.50945, 'gate': 0.0, 's': 332.5}
+{'step': 135, 'kl': 0.00578, 'ce': 4.191, 'gate': 0.0, 's': 345.7}
+{'step': 140, 'kl': 0.00481, 'ce': 3.86024, 'gate': 0.0, 's': 358.8}
+{'step': 145, 'kl': 0.00472, 'ce': 3.39308, 'gate': 0.0, 's': 370.7}
+{'step': 150, 'kl': 0.00369, 'ce': 2.83759, 'gate': 0.0, 's': 382.4}
+{'step': 155, 'kl': 0.00683, 'ce': 3.10371, 'gate': 0.0, 's': 394.1}
+{'step': 160, 'kl': 0.00454, 'ce': 3.26453, 'gate': 0.0, 's': 405.6}
+{'step': 165, 'kl': 0.00496, 'ce': 3.54846, 'gate': 0.0, 's': 417.3}
+{'step': 170, 'kl': 0.0054, 'ce': 3.35191, 'gate': 0.0, 's': 429.0}
+{'step': 175, 'kl': 0.00605, 'ce': 3.91506, 'gate': 0.0, 's': 440.7}
+{'step': 180, 'kl': 0.00397, 'ce': 3.26656, 'gate': 0.0, 's': 452.6}
+{'step': 185, 'kl': 0.00617, 'ce': 4.04315, 'gate': 0.0, 's': 469.7}
+{'step': 190, 'kl': 0.00592, 'ce': 3.66245, 'gate': 0.0, 's': 482.4}
+{'step': 195, 'kl': 0.0046, 'ce': 3.25738, 'gate': 0.0, 's': 494.3}
+{'step': 200, 'kl': 0.00562, 'ce': 3.28257, 'gate': 0.0, 's': 507.4}
+[CTRL_identity_small] trained: ppl 27.537 gate None open None prefill 703 decode 23.1 | "The sky appears blue because of the way sunlight interacts with the Earth's atmosphere, sc"
+DONE CTRL_identity_small

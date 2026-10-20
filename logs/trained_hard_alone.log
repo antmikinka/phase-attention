@@ -1,0 +1,48 @@
+[hard_alone] trainable params: 420 in 60 tensors
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (299078 > 131072). Running this sequence through the model will result in indexing errors
+/workspace/phase-attention/scripts/train_new_layers.py:93: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+  r["values"] = {n: (p.detach().flatten()[:16].tolist() if p.numel() > 1 else float(p)) for n, p in trainable if "adapter" not in n}
+[hard_alone] untrained: ppl 116.448 gate None open None prefill 570 decode 19.3 | ''
+{'step': 5, 'kl': 0.77771, 'ce': 4.62605, 'gate': 0.0, 's': 12.1}
+{'step': 10, 'kl': 0.55058, 'ce': 3.71091, 'gate': 0.0, 's': 24.0}
+{'step': 15, 'kl': 0.49792, 'ce': 4.15156, 'gate': 0.0, 's': 35.6}
+{'step': 20, 'kl': 0.37111, 'ce': 4.01079, 'gate': 0.0, 's': 48.8}
+{'step': 25, 'kl': 0.37961, 'ce': 4.35434, 'gate': 0.0, 's': 60.2}
+{'step': 30, 'kl': 0.27829, 'ce': 3.397, 'gate': 0.0, 's': 71.9}
+{'step': 35, 'kl': 0.25542, 'ce': 3.69911, 'gate': 0.0, 's': 89.4}
+{'step': 40, 'kl': 0.22772, 'ce': 3.99348, 'gate': 0.0, 's': 100.8}
+{'step': 45, 'kl': 0.2449, 'ce': 4.15297, 'gate': 0.0, 's': 111.9}
+{'step': 50, 'kl': 0.20071, 'ce': 3.4824, 'gate': 0.0, 's': 124.4}
+{'step': 55, 'kl': 0.19735, 'ce': 3.68335, 'gate': 0.0, 's': 137.2}
+{'step': 60, 'kl': 0.1777, 'ce': 3.79284, 'gate': 0.0, 's': 148.3}
+{'step': 65, 'kl': 0.13631, 'ce': 4.00275, 'gate': 0.0, 's': 160.1}
+{'step': 70, 'kl': 0.13832, 'ce': 3.96579, 'gate': 0.0, 's': 173.3}
+{'step': 75, 'kl': 0.14596, 'ce': 3.93678, 'gate': 0.0, 's': 185.8}
+{'step': 80, 'kl': 0.11529, 'ce': 3.24677, 'gate': 0.0, 's': 198.3}
+{'step': 85, 'kl': 0.12756, 'ce': 4.2498, 'gate': 0.0, 's': 215.8}
+{'step': 90, 'kl': 0.12254, 'ce': 3.47818, 'gate': 0.0, 's': 228.6}
+{'step': 95, 'kl': 0.12201, 'ce': 3.41409, 'gate': 0.0, 's': 241.8}
+{'step': 100, 'kl': 0.07291, 'ce': 3.60676, 'gate': 0.0, 's': 253.5}
+{'step': 105, 'kl': 0.07151, 'ce': 3.38936, 'gate': 0.0, 's': 265.9}
+{'step': 110, 'kl': 0.06586, 'ce': 3.3687, 'gate': 0.0, 's': 277.7}
+{'step': 115, 'kl': 0.06063, 'ce': 3.07267, 'gate': 0.0, 's': 290.5}
+{'step': 120, 'kl': 0.05292, 'ce': 3.96161, 'gate': 0.0, 's': 304.6}
+{'step': 125, 'kl': 0.04942, 'ce': 3.87171, 'gate': 0.0, 's': 317.4}
+{'step': 130, 'kl': 0.03795, 'ce': 3.50963, 'gate': 0.0, 's': 330.7}
+{'step': 135, 'kl': 0.02686, 'ce': 4.1965, 'gate': 0.0, 's': 348.6}
+{'step': 140, 'kl': 0.02491, 'ce': 3.86729, 'gate': 0.0, 's': 362.3}
+{'step': 145, 'kl': 0.0214, 'ce': 3.39284, 'gate': 0.0, 's': 375.3}
+{'step': 150, 'kl': 0.01398, 'ce': 2.82849, 'gate': 0.0, 's': 387.5}
+{'step': 155, 'kl': 0.01485, 'ce': 3.11383, 'gate': 0.0, 's': 399.2}
+{'step': 160, 'kl': 0.01121, 'ce': 3.27391, 'gate': 0.0, 's': 411.1}
+{'step': 165, 'kl': 0.01057, 'ce': 3.55581, 'gate': 0.0, 's': 423.5}
+{'step': 170, 'kl': 0.01086, 'ce': 3.34952, 'gate': 0.0, 's': 436.4}
+{'step': 175, 'kl': 0.01073, 'ce': 3.91552, 'gate': 0.0, 's': 448.2}
+{'step': 180, 'kl': 0.00756, 'ce': 3.25994, 'gate': 0.0, 's': 460.3}
+{'step': 185, 'kl': 0.00823, 'ce': 4.04654, 'gate': 0.0, 's': 473.2}
+{'step': 190, 'kl': 0.00725, 'ce': 3.67082, 'gate': 0.0, 's': 492.1}
+{'step': 195, 'kl': 0.00669, 'ce': 3.26081, 'gate': 0.0, 's': 504.3}
+{'step': 200, 'kl': 0.00718, 'ce': 3.29408, 'gate': 0.0, 's': 515.9}
+[hard_alone] trained: ppl 27.555 gate None open None prefill 623 decode 16.9 | 'The sky appears blue because it contains a mixture of nitrogen and oxygen molecules, which'
+DONE hard_alone
