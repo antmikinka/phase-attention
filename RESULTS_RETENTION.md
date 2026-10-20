@@ -139,5 +139,5 @@ and strength-0 = stock.
 
 Artifacts: `results/retention.json` (all metrics, per-window values, paired stats vs stock ppl) and
 `logs/ret_<arm>.{log,jsonl}`. The arms evaluated before the final metric fix (hard_restore_aux0.1,
-CTRL_identity_aux0.1) were re-evaluated with `--reeval`. Learned params, including the readout (~3.2 MB per arm),
+CTRL_identity_aux0.1) were re-evaluated with `--reeval`. Learned params, including the readout (~4.8 MB per arm, 58 MB total),
 are kept on the box in `results/retention_params/` and are not committed (`*.pt` is gitignored).
