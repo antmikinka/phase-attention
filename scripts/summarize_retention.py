@@ -7,6 +7,15 @@ S = json.load(open("results/surgery.json"))["stock@64x512"]; stock = math.exp(su
 LAGS = ["4", "12", "28", "60"]; PL = ["1", "4", "8", "12", "28", "32", "60"]
 E = {a: r["eval"] for a, r in d.items() if "eval" in r}
 pc = lambda x: f"{100*x:.1f}"
+import torch
+from transformers import AutoTokenizer
+from qwen_arch.evaluate import wikitext_ids
+_tok = AutoTokenizer.from_pretrained("Qwen/Qwen3-0.6B")
+_tr = wikitext_ids(_tok, "train"); _te = wikitext_ids(_tok, "test")
+_v, _c = _tr.unique(return_counts=True); _top = int(_v[_c.argmax()])
+POS = torch.arange(64, 512, 7)
+base = {k: float(torch.cat([_te[w*512:(w+1)*512][POS - int(k)] for w in range(64)]).eq(_top).float().mean()) for k in PL}
+print("Majority baseline (always predict the most frequent TRAIN token %r): %s%%\n" % (_tok.decode([_top]), " / ".join(f"lag {k} {100*v:.1f}" for k, v in base.items())))
 print(f"Stock ppl {stock:.2f}; ppl budget (+3%) {1.03*stock:.2f}\n")
 print("| arm | new params | readout params | ppl | Δ stock | gate mean/open | trained readout top-1 % @ lag " + " / ".join(LAGS) +
       " | fresh probe % @ lag " + " / ".join(PL) + " |")

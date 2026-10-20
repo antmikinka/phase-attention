@@ -6,7 +6,7 @@ LAGS = 4, 12, 28, 60 are an odd number of P=4 blocks back, so token[t-k] is alwa
 relative to the query t (hard-phase layers 8-19 cannot attend to it directly).
 h19 = residual stream after layer 19 (end of the modified block), parameter-free RMS-normalised.
 Readout_k = Linear(D,64) -> Linear(64, 2049) (+bias) over the 2048 most frequent TRAIN tokens + 'other'; identical for every arm.
-'other' targets always count as wrong in accuracy.
+Accuracy = argmax over the 2048 real tokens (never 'other'); 'other' targets count as wrong.
 Eval on the first 32,768 WikiText-2 TEST tokens: ppl (64x512), trained-readout top-1 retention per lag (positions
 64,71,...,505 of each window), and a FRESH ridge probe fit on TRAIN windows only (top-200 target classes) and scored
 on the test windows, for lags 1,4,8,12,28,32,60 (8,32 = same-phase contrast). -> results/retention.json"""
@@ -58,6 +58,7 @@ ap.add_argument("--threads", type=int, default=8)
 ap.add_argument("--eval_windows", type=int, default=64)
 ap.add_argument("--probe_train_windows", type=int, default=24)
 ap.add_argument("--ckpt_every", type=int, default=25)
+ap.add_argument("--reeval", action="store_true", help="drop the stored eval and recompute it")
 ap.add_argument("--out", default="results/retention.json")
 args = ap.parse_args()
 torch.set_num_threads(args.threads); torch.manual_seed(0)
@@ -176,6 +177,8 @@ s = torch.load(final, weights_only=False)
 student.load_state_dict(s["trainable"], strict=False); readout.load_state_dict(s["readout"])
 
 state = load_json()
+if args.reeval:
+    state.pop("eval", None)
 TEST = wikitext_ids(tok, "test")
 WIN = [TEST[w * 512:(w + 1) * 512][None] for w in range(args.eval_windows)]
 POS = torch.arange(64, 512, 7)
@@ -189,7 +192,7 @@ if "eval" not in state:
         for x in WIN:
             student(x); h = rms(H["h"][0]); feats.append(h[POS])
             for j, k in enumerate(LAGS):
-                tg = readout.target(x[0, POS - k]); acc[k].append(float(((readout(j, h[POS]).argmax(-1) == tg) & (tg < readout.V)).float().mean()))
+                tg = readout.target(x[0, POS - k]); acc[k].append(float(((readout(j, h[POS])[:, :readout.V].argmax(-1) == tg) & (tg < readout.V)).float().mean()))
         r["readout_acc_per_window"] = {str(k): v for k, v in acc.items()}
         r["readout_acc"] = {str(k): sum(v) / len(v) for k, v in acc.items()}
         # fresh probe: ridge fit on TRAIN windows only, scored on test windows
