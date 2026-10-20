@@ -204,7 +204,7 @@ if "eval" not in state:
         Xtr = torch.cat(Xtr); Xte = torch.cat(feats)
         mu, sd = Xtr.mean(0), Xtr.std(0) + 1e-6
         A, B = (Xtr - mu) / sd, (Xte - mu) / sd
-        G = A.T @ A + 1.0 * A.shape[0] * torch.eye(A.shape[1])
+        G = A.T @ A + 0.1 * A.shape[0] * torch.eye(A.shape[1])
         fp, fpw = {}, {}
         for k in PROBE_LAGS:
             ytr = torch.cat([y[POS - k] for y in Ytr]); yte = torch.cat([x[0, POS - k] for x in WIN])
@@ -213,7 +213,7 @@ if "eval" not in state:
             ctr, cte = lut[ytr], lut[yte]
             Y = F.one_hot(ctr.clamp(min=0), 200).float() * (ctr >= 0)[:, None]
             W = torch.linalg.solve(G, A.T @ (Y - Y.mean(0)))
-            ok = (B @ W).argmax(-1) == cte          # out-of-top-200 targets (cte=-1) count as wrong
+            ok = (B @ W + Y.mean(0)).argmax(-1) == cte   # ridge with intercept (class prior kept)          # out-of-top-200 targets (cte=-1) count as wrong
             fp[str(k)] = float(ok.float().mean())
             fpw[str(k)] = ok.view(len(WIN), -1).float().mean(1).tolist()
         r["fresh_probe_acc"] = fp; r["fresh_probe_acc_per_window"] = fpw
