@@ -1,1 +1,13 @@
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
+[recall_chunkrope_s1] params 6,394,120 (baseline 6,394,112, +0.00%)
+{'step': 100, 'loss': 2.1884, 's': 100.2}
+{'step': 200, 'loss': 1.4879, 's': 193.0}
+{'step': 300, 'loss': 1.3122, 's': 292.5}
+{'step': 400, 'loss': 1.2358, 's': 395.0}
+{'step': 500, 'loss': 1.1782, 's': 488.4}
+{'step': 600, 'loss': 1.1798, 's': 588.0}
+{'step': 700, 'loss': 1.0951, 's': 687.3}
+{'step': 800, 'loss': 1.0676, 's': 787.8}
+{'step': 900, 'loss': 1.0736, 's': 879.5}
+{'step': 1000, 'loss': 1.0255, 's': 966.6}
+[recall_chunkrope_s1] DONE {'val_tok_per_s': 30798.337052371775, 'recall_acc': {'4': 0.641269862651825, '8': 0.4660305380821228, '12': 0.40544748306274414, '16': 0.36482730507850647, '28': 0.5146881341934204, '32': 0.5181747674942017, '60': 0.7673611044883728, '64': 0.7364760637283325}, 'recall_acc_cross_phase': 0.5828661322593689, 'recall_acc_same_phase': 0.5222534537315369}
