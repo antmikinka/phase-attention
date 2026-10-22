@@ -8,3 +8,8 @@
 {'step': 700, 'loss': 1.1617, 's': 941.9}
 {'step': 800, 'loss': 1.0999, 's': 1078.1}
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
+[recall_CTRL_shuffled_fb_s0] params 6,396,280 (baseline 6,394,112, +0.03%)
+resumed at 800
+{'step': 900, 'loss': 1.0304, 's': 172.5}
+{'step': 1000, 'loss': 0.9959, 's': 317.8}
+[recall_CTRL_shuffled_fb_s0] DONE {'val_tok_per_s': 18063.32614448484, 'recall_acc': {'4': 0.4714285731315613, '8': 0.5874046087265015, '12': 0.5023346543312073, '16': 0.5196506381034851, '28': 0.5412474870681763, '32': 0.6113688945770264, '60': 0.7573302388191223, '64': 0.7955950498580933}, 'recall_acc_cross_phase': 0.5691944360733032, 'recall_acc_same_phase': 0.6291089057922363}

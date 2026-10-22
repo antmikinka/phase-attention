@@ -4,3 +4,10 @@
 {'step': 300, 'loss': 1.3639, 's': 148.3}
 {'step': 400, 'loss': 1.0779, 's': 196.2}
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
+[lm_phase_head_s0] params 6,394,200 (baseline 6,394,112, +0.00%)
+resumed at 400
+{'step': 500, 'loss': 1.0487, 's': 66.2}
+{'step': 600, 'loss': 1.0842, 's': 120.3}
+{'step': 700, 'loss': 0.9673, 's': 172.9}
+{'step': 800, 'loss': 0.9036, 's': 224.5}
+{'step': 900, 'loss': 0.9367, 's': 277.2}
