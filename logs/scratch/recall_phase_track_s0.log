@@ -2,3 +2,10 @@ scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No suc
 [recall_phase_track_s0] params 6,392,172 (baseline 6,394,112, -0.03%)
 {'step': 100, 'loss': 2.4264, 's': 118.8}
 {'step': 200, 'loss': 1.5743, 's': 228.5}
+{'step': 300, 'loss': 1.3473, 's': 336.5}
+{'step': 400, 'loss': 1.2686, 's': 442.4}
+{'step': 500, 'loss': 1.1823, 's': 548.6}
+{'step': 600, 'loss': 1.2195, 's': 653.5}
+{'step': 700, 'loss': 1.147, 's': 764.1}
+{'step': 800, 'loss': 1.063, 's': 872.1}
+{'step': 900, 'loss': 1.0266, 's': 980.6}
