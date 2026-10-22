@@ -1,1 +1,10 @@
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
+[recall_baseline_s1] params 6,394,112 (baseline 6,394,112, +0.00%)
+{'step': 100, 'loss': 2.3591, 's': 89.6}
+{'step': 200, 'loss': 1.565, 's': 184.2}
+{'step': 300, 'loss': 1.3304, 's': 280.2}
+{'step': 400, 'loss': 1.2673, 's': 370.1}
+{'step': 500, 'loss': 1.168, 's': 467.7}
+{'step': 600, 'loss': 1.0997, 's': 563.3}
+{'step': 700, 'loss': 1.063, 's': 653.1}
+{'step': 800, 'loss': 0.9703, 's': 746.7}
