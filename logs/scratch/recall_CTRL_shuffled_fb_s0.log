@@ -7,3 +7,4 @@
 {'step': 600, 'loss': 1.1698, 's': 806.0}
 {'step': 700, 'loss': 1.1617, 's': 941.9}
 {'step': 800, 'loss': 1.0999, 's': 1078.1}
+scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
