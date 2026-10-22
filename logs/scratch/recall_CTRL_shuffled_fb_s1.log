@@ -1,1 +1,5 @@
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
+[recall_CTRL_shuffled_fb_s1] params 6,396,280 (baseline 6,394,112, +0.03%)
+{'step': 100, 'loss': 2.3993, 's': 139.8}
+{'step': 200, 'loss': 1.577, 's': 282.0}
+{'step': 300, 'loss': 1.3572, 's': 420.4}

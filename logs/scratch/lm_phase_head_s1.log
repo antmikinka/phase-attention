@@ -4,3 +4,15 @@ scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No suc
 {'step': 200, 'loss': 1.3948, 's': 102.4}
 {'step': 300, 'loss': 1.1957, 's': 154.7}
 {'step': 400, 'loss': 1.1426, 's': 205.0}
+{'step': 500, 'loss': 1.0495, 's': 253.2}
+{'step': 600, 'loss': 1.152, 's': 300.7}
+{'step': 700, 'loss': 1.0583, 's': 349.0}
+{'step': 800, 'loss': 0.8721, 's': 403.2}
+{'step': 900, 'loss': 0.9017, 's': 453.8}
+{'step': 1000, 'loss': 0.8789, 's': 503.9}
+{'step': 1100, 'loss': 0.8325, 's': 557.7}
+{'step': 1200, 'loss': 0.911, 's': 606.1}
+{'step': 1300, 'loss': 0.8347, 's': 658.0}
+{'step': 1400, 'loss': 0.8638, 's': 707.8}
+{'step': 1500, 'loss': 0.7722, 's': 755.7}
+[lm_phase_head_s1] DONE {'val_tok_per_s': 17853.46710787998, 'val_bpb': 1.2308046422163328}
