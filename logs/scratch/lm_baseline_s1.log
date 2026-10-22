@@ -3,3 +3,16 @@ scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No suc
 {'step': 100, 'loss': 1.927, 's': 47.7}
 {'step': 200, 'loss': 1.381, 's': 98.9}
 {'step': 300, 'loss': 1.1653, 's': 144.0}
+{'step': 400, 'loss': 1.0786, 's': 187.4}
+{'step': 500, 'loss': 1.0034, 's': 236.8}
+{'step': 600, 'loss': 1.1029, 's': 283.0}
+{'step': 700, 'loss': 1.0202, 's': 328.4}
+{'step': 800, 'loss': 0.8373, 's': 377.3}
+{'step': 900, 'loss': 0.8764, 's': 423.0}
+{'step': 1000, 'loss': 0.8523, 's': 470.7}
+{'step': 1100, 'loss': 0.7936, 's': 522.9}
+{'step': 1200, 'loss': 0.8783, 's': 570.2}
+{'step': 1300, 'loss': 0.7875, 's': 618.3}
+{'step': 1400, 'loss': 0.8371, 's': 675.4}
+{'step': 1500, 'loss': 0.7306, 's': 732.9}
+[lm_baseline_s1] DONE {'val_tok_per_s': 15224.252990374442, 'val_bpb': 1.1813992909049018}
