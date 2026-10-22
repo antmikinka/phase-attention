@@ -1,2 +1,11 @@
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
 [recall_phase_head_s1] params 6,394,200 (baseline 6,394,112, +0.00%)
+{'step': 100, 'loss': 2.8582, 's': 100.5}
+{'step': 200, 'loss': 1.9327, 's': 198.4}
+{'step': 300, 'loss': 1.6448, 's': 292.0}
+{'step': 400, 'loss': 1.4263, 's': 383.4}
+{'step': 500, 'loss': 1.2774, 's': 470.8}
+{'step': 600, 'loss': 1.2134, 's': 557.7}
+{'step': 700, 'loss': 1.1658, 's': 648.9}
+{'step': 800, 'loss': 1.1151, 's': 736.5}
+{'step': 900, 'loss': 1.1055, 's': 828.4}
