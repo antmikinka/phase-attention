@@ -15,3 +15,4 @@
 {'step': 1400, 'loss': 0.8189, 's': 1122.5}
 {'step': 1500, 'loss': 0.7859, 's': 1206.8}
 [lm_CTRL_shuffled_fb_s0] DONE {'val_tok_per_s': 9083.48339118943, 'val_bpb': 1.2230161740830945}
+scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
