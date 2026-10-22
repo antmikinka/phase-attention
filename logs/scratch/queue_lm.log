@@ -17,3 +17,4 @@ done lm chunkrope s1 Wed Oct 21 18:02:37 PDT 2026
 done lm phase_kv s1 Wed Oct 21 18:02:38 PDT 2026
 done lm baseline s0 Wed Oct 21 18:03:17 PDT 2026
 done lm phase_kv_fb s0 Wed Oct 21 18:03:19 PDT 2026
+done lm CTRL_shuffled_fb s0 Wed Oct 21 18:03:20 PDT 2026
