@@ -1,1 +1,7 @@
 scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
+[lm_phase_kv_fb_s1] params 6,396,280 (baseline 6,394,112, +0.03%)
+{'step': 100, 'loss': 1.9556, 's': 89.8}
+{'step': 200, 'loss': 1.4091, 's': 182.8}
+{'step': 300, 'loss': 1.1862, 's': 271.2}
+{'step': 400, 'loss': 1.1144, 's': 365.1}
+{'step': 500, 'loss': 1.0251, 's': 450.1}
