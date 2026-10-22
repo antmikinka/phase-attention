@@ -78,4 +78,4 @@ Block: `h = x + Mixer(norm(x))`; then pre-MLP extras (feedback); `h = h + SwiGLU
 - **(c) Compute:** `scripts/bench_skip.py` measures forward tok/s at T = 256/1024/2048 and the attention score
   entries each variant actually computes.
 
-Results are in `RESULTS_SCRATCH.md`.
+Results are in `RESULTS_SCRATCH.md`. Environment: Python 3.12 + CPU torch (`/home/box/venvs/phase`); no transformers dependency.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # usage: run_scratch.sh <task> <threads> <seeds...>  — sequential, resumable, commits after each run
 cd "$(dirname "$0")/.."
-P=${PY:-/workspace/krystal-qwen/.venv/bin/python}
+P=${PY:-/home/box/venvs/phase/bin/python}
 task=$1; th=$2; shift 2
 export GIT_AUTHOR_NAME=Anthony GIT_COMMITTER_NAME=Anthony GIT_AUTHOR_EMAIL=67480807+antmikinka@users.noreply.github.com GIT_COMMITTER_EMAIL=67480807+antmikinka@users.noreply.github.com
 for seed in "$@"; do

@@ -1,5 +1,10 @@
 # phase-attention (private)
 
+> **Current direction: a model built FROM SCRATCH (`phase_model/`), nothing from Qwen.**
+> See `docs/MODEL_FROM_SCRATCH.md` (architecture) and `RESULTS_SCRATCH.md` (results). `qwen_arch/` and the
+> RESULTS_SURGERY / RESULTS_TRAINED / RESULTS_RETENTION files are historical (earlier Qwen-surgery experiments).
+
+
 **Main track: zero-training architecture surgery on pretrained Qwen3-0.6B.** `qwen_arch/` is a from-scratch Qwen3 model definition that loads the HF weights. A per-layer spec and a registry decide which layers get which new layer type:
 
 | Layer type | What it does |

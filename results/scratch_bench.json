@@ -1,0 +1,146 @@
+{
+ "T256/baseline": {
+  "tok_per_s_runs": [
+   31528,
+   32556,
+   57589
+  ],
+  "score_entries_rel_baseline": 1.0
+ },
+ "T256/hard_kv_mask": {
+  "tok_per_s_runs": [
+   32236,
+   33331,
+   43319
+  ],
+  "score_entries_rel_baseline": 2.0
+ },
+ "T256/hard_kv_split(skip)": {
+  "tok_per_s_runs": [
+   32610,
+   33289,
+   37608
+  ],
+  "score_entries_rel_baseline": 0.5
+ },
+ "T256/soft_kv": {
+  "tok_per_s_runs": [
+   31496,
+   32032,
+   32208
+  ],
+  "score_entries_rel_baseline": 2.0
+ },
+ "T256/soft_kv_feedback": {
+  "tok_per_s_runs": [
+   37531,
+   34748,
+   36048
+  ],
+  "score_entries_rel_baseline": 4.0
+ },
+ "T256/phase_head": {
+  "tok_per_s_runs": [
+   60892,
+   52385,
+   49043
+  ],
+  "score_entries_rel_baseline": 1.0
+ },
+ "T1024/baseline": {
+  "tok_per_s_runs": [
+   30124,
+   26581,
+   33920
+  ],
+  "score_entries_rel_baseline": 1.0
+ },
+ "T1024/hard_kv_mask": {
+  "tok_per_s_runs": [
+   24190,
+   21660,
+   23231
+  ],
+  "score_entries_rel_baseline": 2.0
+ },
+ "T1024/hard_kv_split(skip)": {
+  "tok_per_s_runs": [
+   30625,
+   26903,
+   26062
+  ],
+  "score_entries_rel_baseline": 0.5
+ },
+ "T1024/soft_kv": {
+  "tok_per_s_runs": [
+   12437,
+   11815,
+   10516
+  ],
+  "score_entries_rel_baseline": 2.0
+ },
+ "T1024/soft_kv_feedback": {
+  "tok_per_s_runs": [
+   9043,
+   7987,
+   7233
+  ],
+  "score_entries_rel_baseline": 4.0
+ },
+ "T1024/phase_head": {
+  "tok_per_s_runs": [
+   27444,
+   46312,
+   44868
+  ],
+  "score_entries_rel_baseline": 1.0
+ },
+ "T2048/baseline": {
+  "tok_per_s_runs": [
+   14899,
+   36535,
+   23790
+  ],
+  "score_entries_rel_baseline": 1.0
+ },
+ "T2048/hard_kv_mask": {
+  "tok_per_s_runs": [
+   9296,
+   12639,
+   10868
+  ],
+  "score_entries_rel_baseline": 2.0
+ },
+ "T2048/hard_kv_split(skip)": {
+  "tok_per_s_runs": [
+   27917,
+   21113,
+   22642
+  ],
+  "score_entries_rel_baseline": 0.5
+ },
+ "T2048/soft_kv": {
+  "tok_per_s_runs": [
+   4491,
+   3256,
+   3721
+  ],
+  "score_entries_rel_baseline": 2.0
+ },
+ "T2048/soft_kv_feedback": {
+  "tok_per_s_runs": [
+   2449,
+   1688,
+   2306
+  ],
+  "score_entries_rel_baseline": 4.0
+ },
+ "T2048/phase_head": {
+  "tok_per_s_runs": [
+   33214,
+   36139,
+   19720
+  ],
+  "score_entries_rel_baseline": 1.0
+ }
+}
