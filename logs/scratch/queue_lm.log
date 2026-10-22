@@ -11,3 +11,4 @@ done lm phase_kv s0 Wed Oct 21 18:02:33 PDT 2026
 done lm baseline s1 Wed Oct 21 18:02:33 PDT 2026
 done lm phase_kv_fb s1 Wed Oct 21 18:02:34 PDT 2026
 done lm CTRL_shuffled_fb s1 Wed Oct 21 18:02:35 PDT 2026
+done lm phase_head s1 Wed Oct 21 18:02:36 PDT 2026
