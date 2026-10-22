@@ -1,0 +1,4 @@
+[lm_CTRL_shuffled_fb_s0] params 6,396,280 (baseline 6,394,112, +0.03%)
+{'step': 100, 'loss': 2.0366, 's': 78.6}
+{'step': 200, 'loss': 1.3984, 's': 158.3}
+{'step': 300, 'loss': 1.3478, 's': 240.7}
