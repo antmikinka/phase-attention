@@ -11,3 +11,4 @@ scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No suc
 {'step': 900, 'loss': 1.0396, 's': 876.8}
 {'step': 1000, 'loss': 1.0143, 's': 975.4}
 [recall_phase_kv_s1] DONE {'val_tok_per_s': 28963.719571780875, 'recall_acc': {'4': 0.5285714268684387, '8': 0.567175567150116, '12': 0.4280155599117279, '16': 0.49344977736473083, '28': 0.5621730089187622, '32': 0.5684455037117004, '60': 0.7843364477157593, '64': 0.8029366135597229}, 'recall_acc_cross_phase': 0.5765712857246399, 'recall_acc_same_phase': 0.6086492538452148}
+exists results/scratch/recall_phase_kv_s1.json
