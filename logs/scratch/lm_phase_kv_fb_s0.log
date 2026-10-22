@@ -15,3 +15,4 @@
 {'step': 1400, 'loss': 0.8131, 's': 1124.6}
 {'step': 1500, 'loss': 0.7846, 's': 1204.0}
 [lm_phase_kv_fb_s0] DONE {'val_tok_per_s': 9663.255309452217, 'val_bpb': 1.208235430155173}
+scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No such file or directory
