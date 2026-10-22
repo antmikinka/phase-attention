@@ -10,3 +10,9 @@ scripts/run_scratch.sh: line 9: /workspace/krystal-qwen/.venv/bin/python: No suc
 {'step': 800, 'loss': 0.877, 's': 517.8}
 {'step': 900, 'loss': 0.9081, 's': 586.5}
 {'step': 1000, 'loss': 0.8816, 's': 657.5}
+{'step': 1100, 'loss': 0.8515, 's': 727.2}
+{'step': 1200, 'loss': 0.8289, 's': 800.1}
+{'step': 1300, 'loss': 0.8511, 's': 867.5}
+{'step': 1400, 'loss': 0.8274, 's': 936.3}
+{'step': 1500, 'loss': 0.7841, 's': 1000.7}
+[lm_phase_track_s0] DONE {'val_tok_per_s': 11614.093575964727, 'val_bpb': 1.2158545289676728}
