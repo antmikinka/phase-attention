@@ -10,3 +10,4 @@ done recall phase_kv s0 Wed Oct 21 18:02:32 PDT 2026
 done recall baseline s1 Wed Oct 21 18:02:33 PDT 2026
 done recall phase_kv_fb s1 Wed Oct 21 18:02:34 PDT 2026
 done recall CTRL_shuffled_fb s1 Wed Oct 21 18:02:35 PDT 2026
+done recall phase_head s1 Wed Oct 21 18:02:35 PDT 2026
