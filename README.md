@@ -93,3 +93,8 @@ Arms:
 | Other | `coarse4` (CoarseRoPE with C=4), `phase_mask` |
 
 Results go to `results/*.json`, and the smoke summary is in `RESULTS_SMOKE.md`.
+
+
+## Qwen3.8-27B structure (tiny copy) + llama.cpp `qwen35_phase`
+See [docs/QWEN38_PHASE.md](docs/QWEN38_PHASE.md): `qwen38/` (HF qwen3_5 wrappers), `llamacpp/qwen35_phase.patch`,
+`tests/test_qwen38.py`, `scripts/qwen38_gguf_check.py`, `scripts/qwen38_smoke_train.py`. Tested on a tiny random-init copy only.

@@ -1,0 +1,816 @@
+From d4eabbda65567215d740fc8b2ef8293688c5b721 Mon Sep 17 00:00:00 2001
+From: Anthony <67480807+antmikinka@users.noreply.github.com>
+Date: Mon, 2 Nov 2026 20:06:31 -0800
+Subject: [PATCH] qwen35_phase: phase attention arch for Qwen3.5/3.8 dense
+ hybrid (kv bias, head weight, DeltaNet write gate)
+
+---
+ conversion/__init__.py     |   1 +
+ conversion/qwen35_phase.py | 104 +++++++++++++++++++++++++
+ gguf-py/gguf/constants.py  |  57 ++++++++++++++
+ src/llama-arch.cpp         |  19 +++++
+ src/llama-arch.h           |  13 ++++
+ src/llama-context.cpp      |   2 +-
+ src/llama-graph.cpp        |  14 ++++
+ src/llama-graph.h          |  14 ++++
+ src/llama-hparams.h        |   8 ++
+ src/llama-kv-cache.cpp     |  20 +++++
+ src/llama-kv-cache.h       |   2 +
+ src/llama-model.cpp        |  14 ++--
+ src/llama-model.h          |   6 ++
+ src/models/models.h        |   8 ++
+ src/models/qwen35.cpp      | 154 ++++++++++++++++++++++++++++++++++++-
+ 15 files changed, 428 insertions(+), 8 deletions(-)
+ create mode 100644 conversion/qwen35_phase.py
+
+diff --git a/conversion/__init__.py b/conversion/__init__.py
+index 6a34da41f..1203e43f5 100644
+--- a/conversion/__init__.py
++++ b/conversion/__init__.py
+@@ -274,6 +274,7 @@ TEXT_MODEL_MAP: dict[str, str] = {
+     "Qwen3VLForConditionalGeneration": "qwen3vl",
+     "Qwen3VLMoeForConditionalGeneration": "qwen3vl",
+     "Qwen3_5ForCausalLM": "qwen",
++    "Qwen3_5PhaseForCausalLM": "qwen35_phase",
+     "Qwen3_5ForConditionalGeneration": "qwen",
+     "Qwen3_5MoeForCausalLM": "qwen",
+     "Qwen3_5MoeForConditionalGeneration": "qwen",
+diff --git a/conversion/qwen35_phase.py b/conversion/qwen35_phase.py
+new file mode 100644
+index 000000000..61b963f03
+--- /dev/null
++++ b/conversion/qwen35_phase.py
+@@ -0,0 +1,104 @@
++"""qwen35_phase: Qwen3.5/3.6/3.8 dense hybrid + phase attention (antmikinka/phase-attention, qwen38/).
++
++Input directory = a normal Qwen3_5ForCausalLM HF directory whose config.json has
++  "architectures": ["Qwen3_5PhaseForCausalLM"] and a "phase_config" dict
++    {"layers": {"<il>": {"mode": "kv"|"head"|null, "hard": bool, "period": P, "sharp": k, "offset": phi,
++                         "delta_write": bool}}, ...}
++plus a `phase.safetensors` file with tensors
++  model.layers.<il>.phase.supp        [n_head]    (sp_h, already exp'ed and clamped <= 1)
++  model.layers.<il>.phase.write_supp  [n_v_heads] (HF grouped v-head order; reordered here like ssm_beta)
++  model.layers.<il>.phase.write_grp   [n_v_heads]
++  model.layers.<il>.phase.{feedback,tracking}.{down,up,lam}  (only accepted at strength 0: lam == 0)
++"""
++from __future__ import annotations
++
++import json
++from typing import Iterable, TYPE_CHECKING
++
++import torch
++
++from .base import ModelBase, gguf, logger
++from .qwen import Qwen3_5TextModel
++
++if TYPE_CHECKING:
++    from torch import Tensor
++
++_MODES = {None: 0, "none": 0, "kv": 1, "head": 2}
++
++
++@ModelBase.register("Qwen3_5PhaseForCausalLM")
++class Qwen35PhaseModel(Qwen3_5TextModel):
++    model_arch = gguf.MODEL_ARCH.QWEN35_PHASE
++
++    def __init__(self, dir_model, *args, **kwargs):
++        super().__init__(dir_model, *args, **kwargs)
++        self.phase_cfg = self.hparams.get("phase_config") or {}
++        path = self.dir_model / "phase.safetensors"
++        self.phase_tensors: dict[str, Tensor] = {}
++        if path.is_file():
++            from safetensors.torch import load_file
++            self.phase_tensors = load_file(str(path))
++
++    def set_gguf_parameters(self):
++        super().set_gguf_parameters()
++        n = self.block_count
++        layers = {int(k): v for k, v in (self.phase_cfg.get("layers") or {}).items()}
++        mode  = [0] * n
++        hard  = [0] * n
++        dw    = [0] * n
++        per   = [0.0] * n
++        sharp = [0.0] * n
++        off   = [0.0] * n
++        for il, c in layers.items():
++            mode[il]  = _MODES[c.get("mode")]
++            hard[il]  = int(bool(c.get("hard", False)))
++            dw[il]    = int(bool(c.get("delta_write", False)))
++            per[il]   = float(c.get("period", 0.0))
++            sharp[il] = float(c.get("sharp", 0.0)) if c.get("sharp", 0.0) != float("inf") else 0.0
++            off[il]   = float(c.get("offset", 0.0))
++        arch = self.gguf_writer.arch
++        K = gguf.Keys.Phase
++        self.gguf_writer.add_array(K.MODE.format(arch=arch), mode)
++        self.gguf_writer.add_array(K.HARD.format(arch=arch), hard)
++        self.gguf_writer.add_array(K.DELTA_WRITE.format(arch=arch), dw)
++        self.gguf_writer.add_array(K.PERIOD.format(arch=arch), per)
++        self.gguf_writer.add_array(K.SHARPNESS.format(arch=arch), sharp)
++        self.gguf_writer.add_array(K.OFFSET.format(arch=arch), off)
++        # tracking / feedback are not implemented in llama.cpp: only strength 0 (lam == 0) can be exported
++        for name, t in self.phase_tensors.items():
++            if name.endswith(".lam") and float(t.abs().max()) != 0.0:
++                raise NotImplementedError(f"{name} != 0: tracking/feedback are not implemented in llama.cpp yet")
++        self.gguf_writer.add_uint32(K.FEEDBACK_RANK.format(arch=arch), 0)
++        self.gguf_writer.add_uint32(K.TRACKING_RANK.format(arch=arch), 0)
++
++    def generate_extra_tensors(self) -> Iterable[tuple[str, Tensor]]:
++        layers = {int(k): v for k, v in (self.phase_cfg.get("layers") or {}).items()}
++        n_head = self.hparams["num_attention_heads"]
++        for il, c in layers.items():
++            if c.get("mode") == "head":
++                yield f"model.layers.{il}.phase.hgrp", (torch.arange(n_head) % 2).float()
++        for name, t in self.phase_tensors.items():
++            if ".feedback." in name or ".tracking." in name:
++                logger.info(f"skipping {name} (strength 0, not implemented in llama.cpp)")
++                continue
++            yield name, t.float()
++
++    def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
++        if ".phase." not in name:
++            yield from super().modify_tensors(data_torch, name, bid)
++            return
++        assert bid is not None
++        kind = name.rsplit(".phase.", 1)[1]
++        if kind in ("write_supp", "write_grp"):
++            # same V-head reorder (grouped -> tiled) as ssm_beta / ssm_alpha rows
++            nk = self.hparams["linear_num_key_heads"]
++            nv = self.hparams["linear_num_value_heads"]
++            if nk != nv:
++                data_torch = self._reorder_v_heads(data_torch.unsqueeze(-1), 0, nk, nv // nk, 1).squeeze(-1)
++        tensor = {
++            "supp":       gguf.MODEL_TENSOR.PHASE_SUPP,
++            "hgrp":       gguf.MODEL_TENSOR.PHASE_HGRP,
++            "write_supp": gguf.MODEL_TENSOR.PHASE_WSUPP,
++            "write_grp":  gguf.MODEL_TENSOR.PHASE_WGRP,
++        }[kind]
++        yield gguf.TENSOR_NAMES[tensor].format(bid=bid), data_torch.float().contiguous()
+diff --git a/gguf-py/gguf/constants.py b/gguf-py/gguf/constants.py
+index 4d057295c..059cf3a13 100644
+--- a/gguf-py/gguf/constants.py
++++ b/gguf-py/gguf/constants.py
+@@ -315,6 +315,16 @@ class Keys:
+         L_CYCLES         = "{arch}.hrm.l_cycles"
+         PREFIX_LM        = "{arch}.hrm.prefix_lm"
+ 
++    class Phase:  # qwen35_phase (per-layer arrays)
++        MODE          = "{arch}.phase.mode"           # 0 off, 1 kv, 2 head
++        HARD          = "{arch}.phase.hard"
++        PERIOD        = "{arch}.phase.period"
++        SHARPNESS     = "{arch}.phase.sharpness"
++        OFFSET        = "{arch}.phase.offset"
++        DELTA_WRITE   = "{arch}.phase.delta_write"    # experimental DeltaNet phase write gate
++        FEEDBACK_RANK = "{arch}.phase.feedback_rank"  # reserved (not implemented in llama.cpp)
++        TRACKING_RANK = "{arch}.phase.tracking_rank"  # reserved (not implemented in llama.cpp)
++
+     class SSM:
+         CONV_KERNEL    = "{arch}.ssm.conv_kernel"
+         INNER_SIZE     = "{arch}.ssm.inner_size"
+@@ -612,6 +622,7 @@ class MODEL_ARCH(IntEnum):
+     QWEN3VL          = auto()
+     QWEN3VLMOE       = auto()
+     QWEN35           = auto()
++    QWEN35_PHASE     = auto()
+     QWEN35MOE        = auto()
+     CLEF             = auto()
+     VLLM_DECISION2   = auto()
+@@ -859,6 +870,10 @@ class MODEL_TENSOR(IntEnum):
+     SSM_C_NORM           = auto()
+     SSM_D                = auto()
+     SSM_NORM             = auto()
++    PHASE_SUPP           = auto()
++    PHASE_HGRP           = auto()
++    PHASE_WSUPP          = auto()
++    PHASE_WGRP           = auto()
+     SSM_OUT              = auto()
+     SSM_ALPHA            = auto() # qwen3.5
+     SSM_BETA_ALPHA       = auto() # qwen3next
+@@ -1471,6 +1486,7 @@ MODEL_ARCH_NAMES: dict[MODEL_ARCH, str] = {
+     MODEL_ARCH.QWEN3VL:          "qwen3vl",
+     MODEL_ARCH.QWEN3VLMOE:       "qwen3vlmoe",
+     MODEL_ARCH.QWEN35:           "qwen35",
++    MODEL_ARCH.QWEN35_PHASE:     "qwen35_phase",
+     MODEL_ARCH.QWEN35MOE:        "qwen35moe",
+     MODEL_ARCH.CLEF:             "clef",
+     MODEL_ARCH.VLLM_DECISION2:   "vllm-decision2",
+@@ -1717,6 +1733,10 @@ TENSOR_NAMES: dict[MODEL_TENSOR, str] = {
+     MODEL_TENSOR.SSM_C_NORM:                "blk.{bid}.ssm_c_norm",
+     MODEL_TENSOR.SSM_D:                     "blk.{bid}.ssm_d",
+     MODEL_TENSOR.SSM_NORM:                  "blk.{bid}.ssm_norm",
++    MODEL_TENSOR.PHASE_SUPP:                "blk.{bid}.phase_supp",
++    MODEL_TENSOR.PHASE_HGRP:                "blk.{bid}.phase_hgrp",
++    MODEL_TENSOR.PHASE_WSUPP:               "blk.{bid}.phase_wsupp",
++    MODEL_TENSOR.PHASE_WGRP:                "blk.{bid}.phase_wgrp",
+     MODEL_TENSOR.SSM_OUT:                   "blk.{bid}.ssm_out",
+     MODEL_TENSOR.SSM_ALPHA:                 "blk.{bid}.ssm_alpha",            # qwen3.5
+     MODEL_TENSOR.SSM_BETA_ALPHA:            "blk.{bid}.ssm_ba",
+@@ -3270,6 +3290,43 @@ MODEL_TENSORS: dict[MODEL_ARCH, list[MODEL_TENSOR]] = {
+         MODEL_TENSOR.NEXTN_SHARED_HEAD_HEAD,
+         MODEL_TENSOR.NEXTN_SHARED_HEAD_NORM,
+     ],
++    MODEL_ARCH.QWEN35_PHASE: [
++        MODEL_TENSOR.TOKEN_EMBD,
++        MODEL_TENSOR.OUTPUT_NORM,
++        MODEL_TENSOR.OUTPUT,
++        MODEL_TENSOR.CLS_OUT,
++        MODEL_TENSOR.ATTN_NORM,
++        MODEL_TENSOR.ATTN_Q,
++        MODEL_TENSOR.ATTN_Q_NORM,
++        MODEL_TENSOR.ATTN_K,
++        MODEL_TENSOR.ATTN_K_NORM,
++        MODEL_TENSOR.ATTN_V,
++        MODEL_TENSOR.ATTN_OUT,
++        MODEL_TENSOR.ATTN_POST_NORM,
++        MODEL_TENSOR.ATTN_GATE,
++        MODEL_TENSOR.ATTN_QKV,
++        MODEL_TENSOR.FFN_GATE,
++        MODEL_TENSOR.FFN_DOWN,
++        MODEL_TENSOR.FFN_UP,
++        MODEL_TENSOR.SSM_A,
++        MODEL_TENSOR.SSM_CONV1D,
++        MODEL_TENSOR.SSM_DT,
++        MODEL_TENSOR.SSM_NORM,
++        MODEL_TENSOR.SSM_BETA,
++        MODEL_TENSOR.SSM_ALPHA,
++        MODEL_TENSOR.SSM_OUT,
++        MODEL_TENSOR.PHASE_SUPP,
++        MODEL_TENSOR.PHASE_HGRP,
++        MODEL_TENSOR.PHASE_WSUPP,
++        MODEL_TENSOR.PHASE_WGRP,
++        # NextN/MTP tensors - preserved but unused
++        MODEL_TENSOR.NEXTN_EH_PROJ,
++        MODEL_TENSOR.NEXTN_EMBED_TOKENS,
++        MODEL_TENSOR.NEXTN_ENORM,
++        MODEL_TENSOR.NEXTN_HNORM,
++        MODEL_TENSOR.NEXTN_SHARED_HEAD_HEAD,
++        MODEL_TENSOR.NEXTN_SHARED_HEAD_NORM,
++    ],
+     MODEL_ARCH.CLEF: [
+         MODEL_TENSOR.TOKEN_EMBD,
+         MODEL_TENSOR.OUTPUT_NORM,
+diff --git a/src/llama-arch.cpp b/src/llama-arch.cpp
+index 40f608371..97625db9f 100644
+--- a/src/llama-arch.cpp
++++ b/src/llama-arch.cpp
+@@ -43,6 +43,7 @@ static const std::map<llm_arch, const char *> LLM_ARCH_NAMES = {
+     { LLM_ARCH_QWEN3VL,          "qwen3vl"          },
+     { LLM_ARCH_QWEN3VLMOE,       "qwen3vlmoe"       },
+     { LLM_ARCH_QWEN35,           "qwen35"           },
++    { LLM_ARCH_QWEN35_PHASE,     "qwen35_phase"     },
+     { LLM_ARCH_QWEN35MOE,        "qwen35moe"        },
+     { LLM_ARCH_CLEF,             "clef"             },
+     { LLM_ARCH_VLLM_DECISION2,   "vllm-decision2"   },
+@@ -266,6 +267,14 @@ static const std::map<llm_kv, const char *> LLM_KV_NAMES = {
+     { LLM_KV_TOKEN_SHIFT_COUNT,                 "%s.token_shift_count"                 },
+     { LLM_KV_INTERLEAVE_MOE_LAYER_STEP,         "%s.interleave_moe_layer_step"         },
+     { LLM_KV_FULL_ATTENTION_INTERVAL,           "%s.full_attention_interval"           },
++    { LLM_KV_PHASE_MODE,                        "%s.phase.mode"                        },
++    { LLM_KV_PHASE_HARD,                        "%s.phase.hard"                        },
++    { LLM_KV_PHASE_PERIOD,                      "%s.phase.period"                      },
++    { LLM_KV_PHASE_SHARPNESS,                   "%s.phase.sharpness"                   },
++    { LLM_KV_PHASE_OFFSET,                      "%s.phase.offset"                      },
++    { LLM_KV_PHASE_DELTA_WRITE,                 "%s.phase.delta_write"                 },
++    { LLM_KV_PHASE_FEEDBACK_RANK,               "%s.phase.feedback_rank"               },
++    { LLM_KV_PHASE_TRACKING_RANK,               "%s.phase.tracking_rank"               },
+     { LLM_KV_NUM_LOOPS,                         "%s.num_loops"                         },
+     { LLM_KV_SKIP_LOOP_FINAL_NORM,              "%s.skip_loop_final_norm"              },
+     { LLM_KV_HRM_LAYERS_PER_STACK,              "%s.hrm.layers_per_stack"              },
+@@ -606,6 +615,10 @@ static const std::map<llm_tensor, const char *> LLM_TENSOR_NAMES = {
+     { LLM_TENSOR_SSM_F_A,                                "blk.%d.ssm_f_a" },
+     { LLM_TENSOR_SSM_F_B,                                "blk.%d.ssm_f_b" },
+     { LLM_TENSOR_SSM_BETA,                               "blk.%d.ssm_beta" },
++    { LLM_TENSOR_PHASE_SUPP,                             "blk.%d.phase_supp" },
++    { LLM_TENSOR_PHASE_HGRP,                             "blk.%d.phase_hgrp" },
++    { LLM_TENSOR_PHASE_WSUPP,                            "blk.%d.phase_wsupp" },
++    { LLM_TENSOR_PHASE_WGRP,                             "blk.%d.phase_wgrp" },
+     { LLM_TENSOR_SSM_G_A,                                "blk.%d.ssm_g_a" },
+     { LLM_TENSOR_SSM_G,                                  "blk.%d.ssm_g" },
+     { LLM_TENSOR_ATTN_RES_SCORE,                         "blk.%d.attn_res_score" },
+@@ -1004,6 +1017,10 @@ static const std::map<llm_tensor, llm_tensor_info> LLM_TENSOR_INFOS = {
+     {LLM_TENSOR_SSM_C_NORM,                 {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_SSM_D,                      {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_SSM_NORM,                   {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
++    {LLM_TENSOR_PHASE_SUPP,                 {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
++    {LLM_TENSOR_PHASE_HGRP,                 {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
++    {LLM_TENSOR_PHASE_WSUPP,                {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
++    {LLM_TENSOR_PHASE_WGRP,                 {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     // Kimi KDA - Conv tensors are 4D [d_conv, 1, d_inner, 1], reshaped to 2D at runtime
+     {LLM_TENSOR_SSM_CONV1D_Q,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+     {LLM_TENSOR_SSM_CONV1D_K,               {LLM_TENSOR_LAYER_REPEATING, GGML_OP_MUL}},
+@@ -1292,6 +1309,7 @@ bool llm_arch_is_hybrid(const llm_arch & arch) {
+         case LLM_ARCH_KIMI_K3:
+         case LLM_ARCH_GLM5_NEXT:
+         case LLM_ARCH_QWEN35:
++        case LLM_ARCH_QWEN35_PHASE:
+         case LLM_ARCH_QWEN35MOE:
+         case LLM_ARCH_CLOVER_MOE:
+         case LLM_ARCH_QWEN4EXP:
+@@ -1320,6 +1338,7 @@ bool llm_arch_supports_rs_rollback(const llm_arch & arch) {
+     switch (arch) {
+         case LLM_ARCH_KIMI_K3:
+         case LLM_ARCH_QWEN35:
++        case LLM_ARCH_QWEN35_PHASE:
+         case LLM_ARCH_QWEN35MOE:
+         case LLM_ARCH_CLOVER_MOE:
+         case LLM_ARCH_QWEN4EXP:
+diff --git a/src/llama-arch.h b/src/llama-arch.h
+index b98be40cf..85ff14ec8 100644
+--- a/src/llama-arch.h
++++ b/src/llama-arch.h
+@@ -46,6 +46,7 @@ enum llm_arch {
+     LLM_ARCH_QWEN3VL,
+     LLM_ARCH_QWEN3VLMOE,
+     LLM_ARCH_QWEN35,
++    LLM_ARCH_QWEN35_PHASE,
+     LLM_ARCH_QWEN35MOE,
+     LLM_ARCH_CLEF,
+     LLM_ARCH_VLLM_DECISION2,
+@@ -270,6 +271,14 @@ enum llm_kv {
+     LLM_KV_TOKEN_SHIFT_COUNT,
+     LLM_KV_INTERLEAVE_MOE_LAYER_STEP,
+     LLM_KV_FULL_ATTENTION_INTERVAL,
++    LLM_KV_PHASE_MODE,           // qwen35_phase: per layer 0 = off, 1 = kv, 2 = head
++    LLM_KV_PHASE_HARD,           // qwen35_phase: per layer 0/1
++    LLM_KV_PHASE_PERIOD,         // qwen35_phase: per layer clock period (tokens)
++    LLM_KV_PHASE_SHARPNESS,      // qwen35_phase: per layer clock sharpness k
++    LLM_KV_PHASE_OFFSET,         // qwen35_phase: per layer clock offset phi
++    LLM_KV_PHASE_DELTA_WRITE,    // qwen35_phase: per layer 0/1, DeltaNet phase write gate (experimental)
++    LLM_KV_PHASE_FEEDBACK_RANK,  // qwen35_phase: reserved, 0 = absent (not implemented in llama.cpp yet)
++    LLM_KV_PHASE_TRACKING_RANK,  // qwen35_phase: reserved, 0 = absent (not implemented in llama.cpp yet)
+     LLM_KV_NUM_LOOPS,
+     LLM_KV_SKIP_LOOP_FINAL_NORM,
+     LLM_KV_HRM_LAYERS_PER_STACK,
+@@ -603,6 +612,10 @@ enum llm_tensor {
+     LLM_TENSOR_SSM_C_NORM,
+     LLM_TENSOR_SSM_D,
+     LLM_TENSOR_SSM_NORM,
++    LLM_TENSOR_PHASE_SUPP,          // qwen35_phase: per-head suppression sp_h       [n_head]
++    LLM_TENSOR_PHASE_HGRP,          // qwen35_phase: head-mode head group g_h (0/1)  [n_head]
++    LLM_TENSOR_PHASE_WSUPP,         // qwen35_phase: DeltaNet write suppression      [n_v_heads]
++    LLM_TENSOR_PHASE_WGRP,          // qwen35_phase: DeltaNet write head group (0/1) [n_v_heads]
+     LLM_TENSOR_SSM_OUT,
+     LLM_TENSOR_SSM_BETA_ALPHA,      // qwen3next
+     LLM_TENSOR_SSM_ALPHA,           // qwen3.5
+diff --git a/src/llama-context.cpp b/src/llama-context.cpp
+index 0cd795a56..ba2e8b4e3 100644
+--- a/src/llama-context.cpp
++++ b/src/llama-context.cpp
+@@ -2704,7 +2704,7 @@ uint32_t llama_context::graph_max_nodes(uint32_t n_tokens) const {
+     } else if (model.arch == LLM_ARCH_QWEN3NEXT ||
+         model.arch == LLM_ARCH_KIMI_LINEAR ||
+         model.arch == LLM_ARCH_BAILINGMOE3 ||
+-        model.arch == LLM_ARCH_QWEN35 ||
++        model.arch == LLM_ARCH_QWEN35 || model.arch == LLM_ARCH_QWEN35_PHASE ||
+         model.arch == LLM_ARCH_QWEN35MOE ||
+         model.arch == LLM_ARCH_CLEF ||
+         model.arch == LLM_ARCH_CLOVER_MOE ||
+diff --git a/src/llama-graph.cpp b/src/llama-graph.cpp
+index fe8bdebe5..b9a8630f7 100644
+--- a/src/llama-graph.cpp
++++ b/src/llama-graph.cpp
+@@ -347,6 +347,20 @@ void llm_graph_input_pos_bucket::set_input(const llama_ubatch * ubatch) {
+     }
+ }
+ 
++void llm_graph_input_phase_pos::set_input(const llama_ubatch * ubatch) {
++    if (q_pos && q_pos->buffer) {
++        GGML_ASSERT(ggml_backend_buffer_is_host(q_pos->buffer));
++        float * data = (float *) q_pos->data;
++        // for M-RoPE the first n_tokens entries are the text/temporal positions
++        for (int64_t i = 0; i < q_pos->ne[0]; ++i) {
++            data[i] = (float) ubatch->pos[i];
++        }
++    }
++    if (kv_pos && kv_pos->buffer) {
++        mctx->set_input_kv_pos(kv_pos);
++    }
++}
++
+ void llm_graph_input_pos_bucket_kv::set_input(const llama_ubatch * ubatch) {
+     if (pos_bucket) {
+         mctx->set_input_pos_bucket(pos_bucket, ubatch);
+diff --git a/src/llama-graph.h b/src/llama-graph.h
+index 37b47acbb..e6e4f2e0e 100644
+--- a/src/llama-graph.h
++++ b/src/llama-graph.h
+@@ -232,6 +232,20 @@ public:
+     const llama_hparams hparams;
+ };
+ 
++// qwen35_phase: absolute positions of the ubatch tokens and of the KV cells, as F32 (inputs of the phase clock)
++class llm_graph_input_phase_pos : public llm_graph_input_i {
++public:
++    llm_graph_input_phase_pos(const llama_kv_cache_context * mctx) : mctx(mctx) {}
++    virtual ~llm_graph_input_phase_pos() = default;
++
++    void set_input(const llama_ubatch * ubatch) override;
++
++    ggml_tensor * q_pos  = nullptr; // F32 [n_tokens]
++    ggml_tensor * kv_pos = nullptr; // F32 [n_kv]
++
++    const llama_kv_cache_context * mctx;
++};
++
+ class llm_graph_input_pos_bucket_kv : public llm_graph_input_i {
+ public:
+     llm_graph_input_pos_bucket_kv(
+diff --git a/src/llama-hparams.h b/src/llama-hparams.h
+index 4d2cb8931..ba47ac510 100644
+--- a/src/llama-hparams.h
++++ b/src/llama-hparams.h
+@@ -112,6 +112,14 @@ struct llama_hparams {
+     std::array<uint32_t, LLAMA_MAX_LAYERS> n_head_kv_arr;
+     std::array<uint32_t, LLAMA_MAX_LAYERS> n_ff_arr;
+ 
++    // qwen35_phase (per layer)
++    std::array<uint32_t, LLAMA_MAX_LAYERS> phase_mode        = {}; // 0 off, 1 kv, 2 head
++    std::array<uint32_t, LLAMA_MAX_LAYERS> phase_hard        = {};
++    std::array<uint32_t, LLAMA_MAX_LAYERS> phase_delta_write = {};
++    std::array<float,    LLAMA_MAX_LAYERS> phase_period      = {};
++    std::array<float,    LLAMA_MAX_LAYERS> phase_sharp       = {};
++    std::array<float,    LLAMA_MAX_LAYERS> phase_offset      = {};
++
+     // per-layer expert feed-forward size
+     std::array<uint32_t, LLAMA_MAX_LAYERS> n_ff_exp_arr;
+     // per-layer top-k expert routing count
+diff --git a/src/llama-kv-cache.cpp b/src/llama-kv-cache.cpp
+index 84f547ae1..6e34e72ca 100644
+--- a/src/llama-kv-cache.cpp
++++ b/src/llama-kv-cache.cpp
+@@ -1979,6 +1979,22 @@ void llama_kv_cache::set_input_pos_bucket(ggml_tensor * dst, const llama_ubatch
+     }
+ }
+ 
++void llama_kv_cache::set_input_kv_pos(ggml_tensor * dst) const {
++    GGML_ASSERT(n_stream == 1 && "qwen35_phase: TODO: support multiple streams");
++    GGML_ASSERT(ggml_backend_buffer_is_host(dst->buffer));
++    GGML_ASSERT(dst->type == GGML_TYPE_F32);
++
++    const auto & cells = v_cells[0];
++
++    float * data = (float *) dst->data;
++
++    const int64_t n_kv = dst->ne[0];
++    for (int64_t j = 0; j < n_kv; ++j) {
++        // the position of an empty cell is irrelevant - it is masked out by the KQ mask
++        data[j] = (j < (int64_t) cells.size() && !cells.is_empty(j)) ? (float) cells.pos_get(j) : -1.0f;
++    }
++}
++
+ bool llama_kv_cache::has_cell_ext() const {
+     // M-RoPE needs the 2D position, the PLE / Engram n-gram hashes need the token id
+     return hparams.n_pos_per_embd() > 1 || hparams.ple_n_heads > 0;
+@@ -3082,6 +3098,10 @@ void llama_kv_cache_context::set_input_pos_bucket(ggml_tensor * dst, const llama
+     kv->set_input_pos_bucket(dst, ubatch);
+ }
+ 
++void llama_kv_cache_context::set_input_kv_pos(ggml_tensor * dst) const {
++    kv->set_input_kv_pos(dst);
++}
++
+ void llama_kv_cache_context::get_prev_tokens(const llama_ubatch & ubatch, uint32_t n, std::vector<llama_token> & res) const {
+     kv->get_prev_tokens(ubatch, n, res);
+ }
+diff --git a/src/llama-kv-cache.h b/src/llama-kv-cache.h
+index 9ed36c562..3c75bb9b0 100644
+--- a/src/llama-kv-cache.h
++++ b/src/llama-kv-cache.h
+@@ -244,6 +244,7 @@ public:
+ 
+     void set_input_attn_mask (const llm_attn_mask & attn_mask, const llama_ubatch * ubatch, bool causal_attn) const;
+     void set_input_pos_bucket(ggml_tensor * dst, const llama_ubatch * ubatch) const;
++    void set_input_kv_pos    (ggml_tensor * dst) const; // qwen35_phase: F32 [n_kv] cell positions (-1 = empty)
+ 
+     // true if llama_kv_cell_ext holds information that has to survive a state save/restore
+     bool has_cell_ext() const;
+@@ -443,6 +444,7 @@ public:
+     void set_input_k_shift   (ggml_tensor * dst) const;
+     void set_input_attn_mask (const llm_attn_mask & attn_mask, const llama_ubatch * ubatch, bool causal_attn) const;
+     void set_input_pos_bucket(ggml_tensor * dst, const llama_ubatch * ubatch) const;
++    void set_input_kv_pos    (ggml_tensor * dst) const;
+ 
+     // see llama_kv_cache::get_prev_tokens()
+     void get_prev_tokens(const llama_ubatch & ubatch, uint32_t n, std::vector<llama_token> & res) const;
+diff --git a/src/llama-model.cpp b/src/llama-model.cpp
+index 7529f55c2..57fd15d86 100644
+--- a/src/llama-model.cpp
++++ b/src/llama-model.cpp
+@@ -343,6 +343,7 @@ static llama_model * llama_model_mapping(llm_arch arch, const llama_model_params
+         case LLM_ARCH_QWEN3NEXT:
+             return new llama_model_qwen3next(params);
+         case LLM_ARCH_QWEN35:
++        case LLM_ARCH_QWEN35_PHASE:
+             return new llama_model_qwen35(params);
+         case LLM_ARCH_QWEN35MOE:
+             return new llama_model_qwen35moe(params);
+@@ -646,7 +647,7 @@ struct ggml_backend_meta_split_state llama_meta_device_get_split_state(const str
+     // if a model has fused tensors they need to be separated into "segments", see the comments on ggml_backend_meta_split_state struct
+     auto get_split_segments = [&](int axis, uint32_t il) -> std::vector<std::pair<int64_t, uint32_t>> {
+         // TODO: deduplicate condition [TAG_SPLIT_QGATE_QWEN]
+-        if (ud->model->arch == LLM_ARCH_QWEN3NEXT || ud->model->arch == LLM_ARCH_QWEN35 || ud->model->arch == LLM_ARCH_QWEN35MOE || ud->model->arch == LLM_ARCH_CLEF || ud->model->arch == LLM_ARCH_CLOVER_MOE ||
++        if (ud->model->arch == LLM_ARCH_QWEN3NEXT || ud->model->arch == LLM_ARCH_QWEN35 || ud->model->arch == LLM_ARCH_QWEN35_PHASE || ud->model->arch == LLM_ARCH_QWEN35MOE || ud->model->arch == LLM_ARCH_CLEF || ud->model->arch == LLM_ARCH_CLOVER_MOE ||
+                 ud->model->arch == LLM_ARCH_QWEN4EXP) {
+ 
+             // fused full attention layers with Q gate tensors that need n_embd doubled:
+@@ -805,7 +806,7 @@ struct ggml_backend_meta_split_state llama_meta_device_get_split_state(const str
+                 GGML_ASSERT(segments.size() == 1);
+                 // some models have Q gate tensors, for those cases the granularity needs to be doubled:
+                 // TODO: deduplicate condition [TAG_SPLIT_QGATE_QWEN]
+-                if (ud->model->arch == LLM_ARCH_QWEN3NEXT || ud->model->arch == LLM_ARCH_QWEN35 || ud->model->arch == LLM_ARCH_QWEN35MOE || ud->model->arch == LLM_ARCH_CLEF || ud->model->arch == LLM_ARCH_CLOVER_MOE ||
++                if (ud->model->arch == LLM_ARCH_QWEN3NEXT || ud->model->arch == LLM_ARCH_QWEN35 || ud->model->arch == LLM_ARCH_QWEN35_PHASE || ud->model->arch == LLM_ARCH_QWEN35MOE || ud->model->arch == LLM_ARCH_CLEF || ud->model->arch == LLM_ARCH_CLOVER_MOE ||
+                         ud->model->arch == LLM_ARCH_QWEN4EXP) {
+                     return {std::lcm(2*n_embd_q, blck_size_perf)};
+                 }
+@@ -839,7 +840,7 @@ struct ggml_backend_meta_split_state llama_meta_device_get_split_state(const str
+             if (std::regex_match(tensor_name, pattern_qkv_weight) || std::regex_match(tensor_name, pattern_qkv_bias)) {
+                 // fused full attention layers need Q gate tensors handled like above:
+                 // TODO: deduplicate condition [TAG_SPLIT_QGATE_QWEN]
+-                if (ud->model->arch == LLM_ARCH_QWEN3NEXT || ud->model->arch == LLM_ARCH_QWEN35 || ud->model->arch == LLM_ARCH_QWEN35MOE || ud->model->arch == LLM_ARCH_CLEF || ud->model->arch == LLM_ARCH_CLOVER_MOE ||
++                if (ud->model->arch == LLM_ARCH_QWEN3NEXT || ud->model->arch == LLM_ARCH_QWEN35 || ud->model->arch == LLM_ARCH_QWEN35_PHASE || ud->model->arch == LLM_ARCH_QWEN35MOE || ud->model->arch == LLM_ARCH_CLEF || ud->model->arch == LLM_ARCH_CLOVER_MOE ||
+                         ud->model->arch == LLM_ARCH_QWEN4EXP) {
+                     return {std::lcm(2*n_embd_q, blck_size_perf), granularity_kv};
+                 }
+@@ -2601,7 +2602,7 @@ void llama_model::print_info() const {
+                 arch == LLM_ARCH_PLAMO2 ||
+                 arch == LLM_ARCH_GRANITE_HYBRID ||
+                 arch == LLM_ARCH_QWEN3NEXT ||
+-                arch == LLM_ARCH_QWEN35 ||
++                arch == LLM_ARCH_QWEN35 || arch == LLM_ARCH_QWEN35_PHASE ||
+                 arch == LLM_ARCH_QWEN35MOE ||
+                 arch == LLM_ARCH_CLOVER_MOE ||
+                 arch == LLM_ARCH_NEMOTRON_H ||
+@@ -3157,7 +3158,7 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params,
+                 // Dense MTP heads use a plain attention KV cache instead of the hybrid wrapper.
+                 const bool mtp_on_hybrid_qwen =
+                     params.ctx_type == LLAMA_CONTEXT_TYPE_MTP &&
+-                    (arch == LLM_ARCH_QWEN3NEXT || arch == LLM_ARCH_QWEN35 || arch == LLM_ARCH_QWEN35MOE ||
++                    (arch == LLM_ARCH_QWEN3NEXT || arch == LLM_ARCH_QWEN35 || arch == LLM_ARCH_QWEN35_PHASE || arch == LLM_ARCH_QWEN35MOE ||
+                      arch == LLM_ARCH_BAILINGMOE3);
+ 
+                 const bool mtp_on_hybrid_nemotron =
+@@ -3193,7 +3194,7 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & params,
+                         filter_recr = [&](uint32_t il) {
+                             return hparams.is_recr(il) && hparams.n_ff(il) == 0;
+                         };
+-                    } else if (arch == LLM_ARCH_QWEN3NEXT || arch == LLM_ARCH_QWEN35 || arch == LLM_ARCH_QWEN35MOE || arch == LLM_ARCH_CLOVER_MOE || arch == LLM_ARCH_QWEN4EXP || arch == LLM_ARCH_MINIMAX_01) {
++                    } else if (arch == LLM_ARCH_QWEN3NEXT || arch == LLM_ARCH_QWEN35 || arch == LLM_ARCH_QWEN35_PHASE || arch == LLM_ARCH_QWEN35MOE || arch == LLM_ARCH_CLOVER_MOE || arch == LLM_ARCH_QWEN4EXP || arch == LLM_ARCH_MINIMAX_01) {
+                         filter_attn = [&](uint32_t il) {
+                             return il < hparams.n_layer() && !hparams.is_recr(il);
+                         };
+@@ -3718,6 +3719,7 @@ llama_rope_type llama_model_rope_type(const llama_model * model) {
+         case LLM_ARCH_QWEN3VL:
+         case LLM_ARCH_QWEN3VLMOE:
+         case LLM_ARCH_QWEN35:
++        case LLM_ARCH_QWEN35_PHASE:
+         case LLM_ARCH_QWEN35MOE:
+         case LLM_ARCH_CLEF:
+         case LLM_ARCH_QWEN4EXP:
+diff --git a/src/llama-model.h b/src/llama-model.h
+index da4964c98..8337425fa 100644
+--- a/src/llama-model.h
++++ b/src/llama-model.h
+@@ -582,6 +582,12 @@ struct llama_layer {
+     struct ggml_tensor * ssm_f_a    = nullptr;
+     struct ggml_tensor * ssm_f_b    = nullptr;
+     struct ggml_tensor * ssm_beta   = nullptr;
++
++    // qwen35_phase
++    struct ggml_tensor * phase_supp  = nullptr;
++    struct ggml_tensor * phase_hgrp  = nullptr;
++    struct ggml_tensor * phase_wsupp = nullptr;
++    struct ggml_tensor * phase_wgrp  = nullptr;
+     struct ggml_tensor * ssm_g_a    = nullptr;
+     struct ggml_tensor * ssm_g_b    = nullptr;
+     struct ggml_tensor * ssm_o_norm = nullptr;
+diff --git a/src/models/models.h b/src/models/models.h
+index 1fc7cae1d..2627d34e6 100644
+--- a/src/models/models.h
++++ b/src/models/models.h
+@@ -2679,6 +2679,14 @@ struct llama_model_qwen35 : public llama_model_base {
+                     ggml_tensor * input,
+                             int   il);
+ 
++        // qwen35_phase
++        ggml_tensor * build_phase_clock(ggml_tensor * t, int il);
++        ggml_tensor * build_phase_kq_bias(int il, float kq_scale);
++        ggml_tensor * build_phase_head_weight(int il, ggml_tensor * grp, ggml_tensor * supp, int64_t n_h);
++
++        ggml_tensor * phase_q_pos  = nullptr; // F32 [n_tokens]
++        ggml_tensor * phase_kv_pos = nullptr; // F32 [n_kv]
++
+         const llama_model & model;
+     };
+ 
+diff --git a/src/models/qwen35.cpp b/src/models/qwen35.cpp
+index 8a4e43411..8fd782bd7 100644
+--- a/src/models/qwen35.cpp
++++ b/src/models/qwen35.cpp
+@@ -1,5 +1,6 @@
+ #include "models.h"
+ #include "llama-memory-recurrent.h"
++#include "llama-kv-cache.h"
+ 
+ void llama_model_qwen35::load_arch_hparams(llama_model_loader & ml) {
+     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS,       hparams.f_norm_rms_eps);
+@@ -22,6 +23,36 @@ void llama_model_qwen35::load_arch_hparams(llama_model_loader & ml) {
+         }
+     }
+ 
++    if (arch == LLM_ARCH_QWEN35_PHASE) {
++        // phase attention (see phase-attention/docs/QWEN38_PHASE.md). Per-layer arrays of length n_layer_all.
++        ml.get_key_or_arr(LLM_KV_PHASE_MODE,        hparams.phase_mode,        hparams.n_layer_all, true);
++        ml.get_key_or_arr(LLM_KV_PHASE_HARD,        hparams.phase_hard,        hparams.n_layer_all, false);
++        ml.get_key_or_arr(LLM_KV_PHASE_DELTA_WRITE, hparams.phase_delta_write, hparams.n_layer_all, false);
++        ml.get_key_or_arr(LLM_KV_PHASE_PERIOD,      hparams.phase_period,      hparams.n_layer_all, true);
++        ml.get_key_or_arr(LLM_KV_PHASE_SHARPNESS,   hparams.phase_sharp,       hparams.n_layer_all, true);
++        ml.get_key_or_arr(LLM_KV_PHASE_OFFSET,      hparams.phase_offset,      hparams.n_layer_all, true);
++
++        uint32_t fb_rank = 0, trk_rank = 0;
++        ml.get_key(LLM_KV_PHASE_FEEDBACK_RANK, fb_rank,  false);
++        ml.get_key(LLM_KV_PHASE_TRACKING_RANK, trk_rank, false);
++        if (fb_rank > 0 || trk_rank > 0) {
++            // TODO(qwen35_phase): tracking / suppressed-stream feedback need a per-sequence EMA state that persists
++            //                     across ubatches (recurrent memory) and a second, other-phase attention pass.
++            throw std::runtime_error("qwen35_phase: tracking / feedback layers are not implemented in llama.cpp yet");
++        }
++        for (uint32_t il = 0; il < hparams.n_layer(); ++il) {
++            if (hparams.phase_mode[il] > 2) {
++                throw std::runtime_error(format("qwen35_phase: bad phase.mode %u at layer %u", hparams.phase_mode[il], il));
++            }
++            if (hparams.phase_mode[il] != 0 && hparams.is_recr(il)) {
++                throw std::runtime_error(format("qwen35_phase: phase attention on a linear-attention layer %u", il));
++            }
++            if ((hparams.phase_mode[il] != 0 || hparams.phase_delta_write[il]) && hparams.phase_period[il] <= 0.0f) {
++                throw std::runtime_error(format("qwen35_phase: non-positive period at layer %u", il));
++            }
++        }
++    }
++
+     switch (hparams.n_layer()) {
+         case 24: type = hparams.n_embd == 1024 ? LLM_TYPE_0_8B : LLM_TYPE_2B; break;
+         case 32: type = hparams.n_embd == 2560 ? LLM_TYPE_4B : LLM_TYPE_9B; break;
+@@ -92,6 +123,19 @@ void llama_model_qwen35::load_arch_tensors(llama_model_loader & ml) {
+         layer.ffn_gate = create_tensor(tn(LLM_TENSOR_FFN_GATE, "weight", il), {n_embd,   n_ff}, flags);
+         layer.ffn_down = create_tensor(tn(LLM_TENSOR_FFN_DOWN, "weight", il), {  n_ff, n_embd}, flags);
+         layer.ffn_up   = create_tensor(tn(LLM_TENSOR_FFN_UP,   "weight", il), {n_embd,   n_ff}, flags);
++
++        if (arch == LLM_ARCH_QWEN35_PHASE) {
++            if (hparams.phase_mode[il] != 0) {
++                layer.phase_supp = create_tensor(tn(LLM_TENSOR_PHASE_SUPP, il), { n_head }, flags);
++            }
++            if (hparams.phase_mode[il] == 2) {
++                layer.phase_hgrp = create_tensor(tn(LLM_TENSOR_PHASE_HGRP, il), { n_head }, flags);
++            }
++            if (hparams.phase_delta_write[il] && hparams.is_recr(il)) {
++                layer.phase_wsupp = create_tensor(tn(LLM_TENSOR_PHASE_WSUPP, il), { n_v_heads }, flags);
++                layer.phase_wgrp  = create_tensor(tn(LLM_TENSOR_PHASE_WGRP,  il), { n_v_heads }, flags);
++            }
++        }
+     };
+ 
+     auto load_block_mtp = [&](int il) {
+@@ -155,6 +199,29 @@ llama_model_qwen35::graph::graph(const llama_model & model, const llm_graph_para
+     ggml_tensor * inp_pos     = build_inp_pos();
+     ggml_tensor * inp_out_ids = build_inp_out_ids();
+ 
++    if (model.arch == LLM_ARCH_QWEN35_PHASE) {
++        bool any_q = false, any_kv = false;
++        for (int il = 0; il < n_layer; ++il) {
++            any_q  |= hparams.phase_mode[il] != 0 || (hparams.phase_delta_write[il] && hparams.is_recr(il));
++            any_kv |= hparams.phase_mode[il] == 1;
++        }
++        if (any_q) {
++            const auto * mctx_attn = inp->get_attn()->mctx;
++            auto pin = std::make_unique<llm_graph_input_phase_pos>(mctx_attn);
++            pin->q_pos = ggml_new_tensor_1d(ctx0, GGML_TYPE_F32, n_tokens);
++            ggml_set_input(pin->q_pos);
++            ggml_set_name(pin->q_pos, "phase_q_pos");
++            if (any_kv) {
++                pin->kv_pos = ggml_new_tensor_1d(ctx0, GGML_TYPE_F32, mctx_attn->get_n_kv());
++                ggml_set_input(pin->kv_pos);
++                ggml_set_name(pin->kv_pos, "phase_kv_pos");
++            }
++            phase_q_pos  = pin->q_pos;
++            phase_kv_pos = pin->kv_pos;
++            res->add_input(std::move(pin));
++        }
++    }
++
+     // MTP/NextN layers are loaded as extra decoder blocks but not executed in the main pass.
+     for (int il = 0; il < n_layer; ++il) {
+         res->t_layer_inp[il] = inpL;
+@@ -327,11 +394,28 @@ ggml_tensor * llama_model_qwen35::graph::build_layer_attn(
+     // Attention computation
+     const float kq_scale = hparams.f_attention_scale == 0.0f ? 1.0f / sqrtf(float(n_embd_head)) : hparams.f_attention_scale;
+ 
++    const uint32_t phase_mode = model.arch == LLM_ARCH_QWEN35_PHASE ? hparams.phase_mode[il] : 0;
++
++    ggml_tensor * kq_b = nullptr;
++    if (phase_mode == 1) {
++        kq_b = build_phase_kq_bias(il, kq_scale);
++    }
++
+     cur = build_attn(inp,
+                 nullptr, nullptr, nullptr,
+-                Qcur, Kcur, Vcur, nullptr, nullptr, nullptr, kq_scale, il);
++                Qcur, Kcur, Vcur, kq_b, nullptr, nullptr, kq_scale, il);
+     cb(cur, "attn_pregate", il);
+ 
++    if (phase_mode == 2) {
++        // head mode: y_h,t *= 1 - (1 - act_h,t)(1 - sp_h)
++        ggml_tensor * w = build_phase_head_weight(il, model.layers[il].phase_hgrp, model.layers[il].phase_supp, n_head);
++        cb(w, "phase_head_w", il);
++        cur = ggml_reshape_3d(ctx0, cur, n_embd_head, n_head, n_tokens);
++        cur = ggml_mul(ctx0, cur, ggml_reshape_3d(ctx0, w, 1, n_head, n_tokens));
++        cur = ggml_reshape_2d(ctx0, cur, n_embd_head * n_head, n_tokens);
++        cb(cur, "attn_pregate_phase", il);
++    }
++
+     ggml_tensor * gate_sigmoid = ggml_sigmoid(ctx0, gate);
+     cb(gate_sigmoid, "gate_sigmoid", il);
+ 
+@@ -374,6 +458,14 @@ ggml_tensor * llama_model_qwen35::graph::build_layer_attn_linear(
+     beta = ggml_sigmoid(ctx0, beta);
+     cb(beta, "beta_sigmoid", il);
+ 
++    if (model.arch == LLM_ARCH_QWEN35_PHASE && hparams.phase_delta_write[il]) {
++        // EXPERIMENTAL phase write gate: beta_h,t *= 1 - (1 - act_h,t)(1 - sw_h)   (value heads, tiled order)
++        ggml_tensor * w = build_phase_head_weight(il, model.layers[il].phase_wgrp, model.layers[il].phase_wsupp, num_v_heads);
++        cb(w, "phase_write_w", il);
++        beta = ggml_mul(ctx0, beta, ggml_reshape_4d(ctx0, w, 1, num_v_heads, n_seq_tokens, n_seqs));
++        cb(beta, "beta_phase", il);
++    }
++
+     ggml_tensor * alpha = build_lora_mm(model.layers[il].ssm_alpha, cur, model.layers[il].ssm_alpha_s);
+     alpha = ggml_reshape_3d(ctx0, alpha, num_v_heads, n_seq_tokens, n_seqs);
+     cb(alpha, "alpha", il);
+@@ -476,6 +568,66 @@ ggml_tensor * llama_model_qwen35::graph::build_layer_attn_linear(
+     return cur;
+ }
+ 
++// ---------------------------------------------------------------------------------------------------- qwen35_phase
++// phase clock s(t) in [0,1]:  soft: 1/2 (1 - tanh(k sin(pi (t + 1/2 + phi) / P)))   hard: floor(t/P) mod 2
++ggml_tensor * llama_model_qwen35::graph::build_phase_clock(ggml_tensor * t, int il) {
++    const float P   = hparams.phase_period[il];
++    const float k   = hparams.phase_sharp[il];
++    const float phi = hparams.phase_offset[il];
++    if (hparams.phase_hard[il]) {
++        // +1e-3 keeps exact multiples of P from rounding below an integer (fractional parts are >= 1/P apart)
++        ggml_tensor * a = ggml_floor(ctx0, ggml_scale_bias(ctx0, t, 1.0f / P,          1e-3f));
++        ggml_tensor * b = ggml_floor(ctx0, ggml_scale_bias(ctx0, t, 1.0f / (2.0f * P), 1e-3f / 2.0f));
++        return ggml_add(ctx0, a, ggml_scale(ctx0, b, -2.0f));
++    }
++    ggml_tensor * u = ggml_scale_bias(ctx0, t, (float) M_PI / P, (float) M_PI * (0.5f + phi) / P);
++    u = ggml_tanh(ctx0, ggml_scale(ctx0, ggml_sin(ctx0, u), k));
++    return ggml_scale_bias(ctx0, u, -0.5f, 0.5f);
++}
++
++// kv mode: kq_b[k, q, h] = log(1 - (1 - sp_h)(1 - A[k, q])) / kq_scale,  A = s_q s_k + (1 - s_q)(1 - s_k)
++// (build_attn_mha adds kq_b before the softmax scale, hence the division; a non-null kq_b disables flash attn)
++ggml_tensor * llama_model_qwen35::graph::build_phase_kq_bias(int il, float kq_scale) {
++    GGML_ASSERT(phase_q_pos && phase_kv_pos);
++    const int64_t n_kv = phase_kv_pos->ne[0];
++
++    ggml_tensor * s_q = ggml_reshape_2d(ctx0, build_phase_clock(phase_q_pos,  il), 1, n_tokens);
++    ggml_tensor * s_k = ggml_repeat_4d(ctx0, ggml_reshape_2d(ctx0, build_phase_clock(phase_kv_pos, il), n_kv, 1), n_kv, n_tokens, 1, 1);
++
++    ggml_tensor * A = ggml_add(ctx0,
++            ggml_mul(ctx0, s_k, s_q),
++            ggml_mul(ctx0, ggml_scale_bias(ctx0, s_k, -1.0f, 1.0f), ggml_scale_bias(ctx0, s_q, -1.0f, 1.0f)));
++    cb(A, "phase_same", il);
++
++    ggml_tensor * bias;
++    if (hparams.phase_hard[il]) {
++        bias = ggml_log(ctx0, A); // A in {0, 1} -> {-inf, 0}, shared by all heads
++        bias = ggml_reshape_4d(ctx0, bias, n_kv, n_tokens, 1, 1);
++    } else {
++        const int64_t n_h = hparams.n_head(il);
++        ggml_tensor * x = ggml_repeat_4d(ctx0, ggml_scale_bias(ctx0, A, -1.0f, 1.0f), n_kv, n_tokens, n_h, 1);
++        ggml_tensor * omsp = ggml_reshape_3d(ctx0, ggml_scale_bias(ctx0, model.layers[il].phase_supp, -1.0f, 1.0f), 1, 1, n_h);
++        x = ggml_scale_bias(ctx0, ggml_mul(ctx0, x, omsp), -1.0f, 1.0f);
++        x = ggml_clamp(ctx0, x, 1e-9f, 1.0f);
++        bias = ggml_log(ctx0, x);
++    }
++    bias = ggml_scale(ctx0, bias, 1.0f / kq_scale);
++    cb(bias, "phase_kq_b", il);
++    return bias;
++}
++
++// per-head weight w[h, t] = 1 - (1 - act)(1 - sp_h),  act = g_h s_t + (1 - g_h)(1 - s_t)    -> [n_h, n_tokens]
++ggml_tensor * llama_model_qwen35::graph::build_phase_head_weight(int il, ggml_tensor * grp, ggml_tensor * supp, int64_t n_h) {
++    GGML_ASSERT(phase_q_pos && grp && supp);
++    ggml_tensor * s_q = ggml_reshape_2d(ctx0, build_phase_clock(phase_q_pos, il), 1, n_tokens);
++    ggml_tensor * g   = ggml_repeat_4d(ctx0, ggml_reshape_2d(ctx0, grp, n_h, 1), n_h, n_tokens, 1, 1);
++    ggml_tensor * act = ggml_add(ctx0,
++            ggml_mul(ctx0, g, s_q),
++            ggml_mul(ctx0, ggml_scale_bias(ctx0, g, -1.0f, 1.0f), ggml_scale_bias(ctx0, s_q, -1.0f, 1.0f)));
++    ggml_tensor * omsp = ggml_reshape_2d(ctx0, ggml_scale_bias(ctx0, supp, -1.0f, 1.0f), n_h, 1);
++    return ggml_scale_bias(ctx0, ggml_mul(ctx0, ggml_scale_bias(ctx0, act, -1.0f, 1.0f), omsp), -1.0f, 1.0f);
++}
++
+ ggml_tensor * llama_model_qwen35::graph::build_layer_ffn(ggml_tensor * cur, const int il) {
+     // Qwen3.5 does not use MoE FFN
+     GGML_ASSERT(model.layers[il].ffn_gate_inp == nullptr);
+-- 
+2.47.3
+
